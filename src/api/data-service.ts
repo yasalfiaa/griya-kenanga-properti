@@ -1,0 +1,566 @@
+import {
+  Unit,
+  Kontrak,
+  Tagihan,
+  Pembayaran,
+  LaporanKerusakan,
+  Profile,
+  IdentitasPenyewa,
+  AuditLog,
+} from '../types/database';
+import {
+  MOCK_UNITS,
+  MOCK_KONTRAK,
+  MOCK_TAGIHAN,
+  MOCK_PEMBAYARAN,
+  MOCK_KERUSAKAN,
+  MOCK_PROFILES,
+  MOCK_IDENTITAS,
+  MOCK_AUDIT_LOG,
+} from '../data/mock-data';
+import {
+  calculateDenda,
+  isContractOverlapping,
+  validatePaymentAmount,
+  canCreateDamageReport,
+  calculateContractEndDate,
+} from '../utils/business-rules';
+import { supabase, isSupabaseConfigured } from './supabase';
+
+// State penyimpanan data dengan sinkronisasi Supabase
+class DataStore {
+  private units: Unit[] = [];
+  private kontrak: Kontrak[] = [];
+  private tagihan: Tagihan[] = [];
+  private pembayaran: Pembayaran[] = [];
+  private kerusakan: LaporanKerusakan[] = [];
+  private profiles: Profile[] = [];
+  private identitas: IdentitasPenyewa[] = [];
+  private auditLogs: AuditLog[] = [];
+  private isLoadedFromSupabase = false;
+
+  constructor() {
+    this.resetToDefaults();
+    if (typeof window !== 'undefined' && isSupabaseConfigured) {
+      this.loadFromSupabase();
+    }
+  }
+
+  public async loadFromSupabase(): Promise<void> {
+    if (!isSupabaseConfigured) return;
+    try {
+      const [u, k, t, p, lk, prof, id, al] = await Promise.all([
+        supabase.from('unit').select('*').order('kode'),
+        supabase.from('kontrak').select('*').order('tanggal_mulai', { ascending: false }),
+        supabase.from('tagihan').select('*').order('periode', { ascending: false }),
+        supabase.from('pembayaran').select('*').order('tanggal_bayar', { ascending: false }),
+        supabase.from('laporan_kerusakan').select('*').order('dibuat_pada', { ascending: false }),
+        supabase.from('profiles').select('*'),
+        supabase.from('identitas_penyewa').select('*'),
+        supabase.from('audit_log').select('*').order('dibuat_pada', { ascending: false }),
+      ]);
+
+      if (u.data && u.data.length > 0) this.units = u.data as Unit[];
+      if (k.data && k.data.length > 0) this.kontrak = k.data as Kontrak[];
+      if (t.data && t.data.length > 0) this.tagihan = t.data as Tagihan[];
+      if (p.data && p.data.length > 0) this.pembayaran = p.data as Pembayaran[];
+      if (lk.data && lk.data.length > 0) this.kerusakan = lk.data as LaporanKerusakan[];
+      if (prof.data && prof.data.length > 0) this.profiles = prof.data as Profile[];
+      if (id.data && id.data.length > 0) this.identitas = id.data as IdentitasPenyewa[];
+      if (al.data && al.data.length > 0) this.auditLogs = al.data as AuditLog[];
+      this.isLoadedFromSupabase = true;
+      console.log('✅ Berhasil menyinkronkan data langsung dari Supabase!');
+    } catch (e) {
+      console.warn('Gagal sinkronisasi data Supabase, menggunakan data cache default:', e);
+    }
+  }
+
+  public resetToDefaults() {
+    this.units = JSON.parse(JSON.stringify(MOCK_UNITS));
+    this.kontrak = JSON.parse(JSON.stringify(MOCK_KONTRAK));
+    this.tagihan = JSON.parse(JSON.stringify(MOCK_TAGIHAN));
+    this.pembayaran = JSON.parse(JSON.stringify(MOCK_PEMBAYARAN));
+    this.kerusakan = JSON.parse(JSON.stringify(MOCK_KERUSAKAN));
+    this.profiles = JSON.parse(JSON.stringify(MOCK_PROFILES));
+    this.identitas = JSON.parse(JSON.stringify(MOCK_IDENTITAS));
+    this.auditLogs = JSON.parse(JSON.stringify(MOCK_AUDIT_LOG));
+  }
+
+  // --- UNIT ---
+  public getUnits(): Unit[] {
+    return [...this.units];
+  }
+
+  public updateUnitStatus(id: string, newStatus: 'tersedia' | 'perbaikan' | 'nonaktif', actor: Profile): void {
+    const unit = this.units.find(u => u.id === id);
+    if (!unit) throw new Error('Unit tidak ditemukan');
+
+    // BR-04: Unit yang masih punya kontrak draf atau aktif tidak boleh dinonaktifkan
+    if (newStatus === 'nonaktif') {
+      const hasActiveContract = this.kontrak.some(
+        k => k.unit_id === id && (k.status === 'draf' || k.status === 'aktif')
+      );
+      if (hasActiveContract) {
+        throw new Error('Unit masih memiliki kontrak draf atau aktif sehingga tidak boleh dinonaktifkan (BR-04)');
+      }
+    }
+
+    const oldStatus = unit.status;
+    unit.status = newStatus;
+
+    this.logAudit(actor, 'status:unit', 'unit', id, { status: oldStatus }, { status: newStatus });
+  }
+
+  public updateUnitPrice(id: string, newPrice: number, actor: Profile): void {
+    if (actor.peran !== 'pemilik') {
+      throw new Error('Hanya Pemilik yang berhak mengubah harga sewa unit (BR-04)');
+    }
+    const unit = this.units.find(u => u.id === id);
+    if (!unit) throw new Error('Unit tidak ditemukan');
+
+    const oldPrice = unit.harga_sewa_bulanan;
+    unit.harga_sewa_bulanan = newPrice;
+
+    this.logAudit(actor, 'harga:unit', 'unit', id, { harga: oldPrice }, { harga: newPrice });
+  }
+
+  // --- PENYEWA & IDENTITAS ---
+  public getTenants(): { profile: Profile; identitas?: IdentitasPenyewa }[] {
+    return this.profiles
+      .filter(p => p.peran === 'penyewa')
+      .map(p => ({
+        profile: p,
+        identitas: this.identitas.find(i => i.penyewa_id === p.id),
+      }));
+  }
+
+  public verifyTenantIdentity(penyewaId: string, status: 'terverifikasi' | 'ditolak', notes: string, actor: Profile): void {
+    if (actor.peran !== 'pengelola') {
+      throw new Error('Hanya Pengelola yang berhak memverifikasi identitas penyewa');
+    }
+    let ident = this.identitas.find(i => i.penyewa_id === penyewaId);
+    if (!ident) {
+      throw new Error('Data identitas penyewa belum diisi');
+    }
+
+    const oldStatus = ident.status_verifikasi;
+    ident.status_verifikasi = status;
+    ident.diverifikasi_oleh = actor.id;
+    ident.diverifikasi_pada = new Date().toISOString();
+    ident.catatan_verifikasi = notes;
+
+    this.logAudit(actor, `verifikasi_identitas:${status}`, 'identitas_penyewa', penyewaId, { status: oldStatus }, { status, notes });
+  }
+
+  // --- KONTRAK ---
+  public getContracts(): Kontrak[] {
+    return this.kontrak.map(k => ({
+      ...k,
+      unit: this.units.find(u => u.id === k.unit_id),
+      penyewa: this.profiles.find(p => p.id === k.penyewa_id),
+    }));
+  }
+
+  public createContract(data: {
+    unit_id: string;
+    penyewa_id: string;
+    tanggal_mulai: string;
+    durasi_bulan: 1 | 3 | 6 | 12;
+    actor: Profile;
+  }): Kontrak {
+    const unit = this.units.find(u => u.id === data.unit_id);
+    if (!unit) throw new Error('Unit tidak ditemukan');
+
+    // BR-04: Kontrak baru hanya bisa dibuat untuk unit berstatus "tersedia"
+    if (unit.status !== 'tersedia') {
+      throw new Error(`Unit berstatus ${unit.status}, hanya unit berstatus 'tersedia' yang dapat dikontrakkan (BR-04)`);
+    }
+
+    // BR-02: Tanggal selesai dihitung otomatis
+    const tanggal_selesai = calculateContractEndDate(data.tanggal_mulai, data.durasi_bulan);
+
+    // BR-01: Validasi Kontrak Beririsan
+    const existingUnitContracts = this.kontrak.filter(k => k.unit_id === data.unit_id);
+    if (isContractOverlapping(existingUnitContracts, data.tanggal_mulai, tanggal_selesai)) {
+      throw new Error('Unit sudah memiliki kontrak berstatus draf atau aktif pada periode tersebut (BR-01)');
+    }
+
+    // Nomor urut baru
+    const seq = this.kontrak.length + 1;
+    const nomor = `KTR-2026-${String(seq).padStart(4, '0')}`;
+
+    const newContract: Kontrak = {
+      id: crypto.randomUUID(),
+      nomor,
+      unit_id: data.unit_id,
+      penyewa_id: data.penyewa_id,
+      tanggal_mulai: data.tanggal_mulai,
+      durasi_bulan: data.durasi_bulan,
+      tanggal_selesai,
+      harga_sewa_bulanan: unit.harga_sewa_bulanan, // BR-04: Harga dikunci saat kontrak dibuat
+      status: 'draf',
+      dibuat_oleh: data.actor.id,
+      dibuat_pada: new Date().toISOString(),
+    };
+
+    this.kontrak.push(newContract);
+    this.logAudit(data.actor, 'buat:kontrak', 'kontrak', newContract.id, null, newContract);
+    return newContract;
+  }
+
+  public activateContract(kontrakId: string, actor: Profile): void {
+    if (actor.peran !== 'pengelola') {
+      throw new Error('Hanya Pengelola yang berhak mengaktifkan kontrak');
+    }
+
+    const k = this.kontrak.find(item => item.id === kontrakId);
+    if (!k) throw new Error('Kontrak tidak ditemukan');
+
+    // BR-03: Identitas penyewa harus sudah diverifikasi
+    const ident = this.identitas.find(i => i.penyewa_id === k.penyewa_id);
+    if (!ident || ident.status_verifikasi !== 'terverifikasi') {
+      throw new Error('Kontrak draf hanya bisa diaktifkan bila identitas penyewa sudah diverifikasi Pengelola (BR-03)');
+    }
+
+    // BR-03: Satu penyewa paling banyak memiliki satu kontrak aktif
+    const hasOtherActive = this.kontrak.some(
+      other => other.penyewa_id === k.penyewa_id && other.status === 'aktif' && other.id !== kontrakId
+    );
+    if (hasOtherActive) {
+      throw new Error('Penyewa sudah memiliki kontrak aktif lain. Satu penyewa hanya boleh punya 1 kontrak aktif (BR-03)');
+    }
+
+    k.status = 'aktif';
+    this.logAudit(actor, 'aktivasi:kontrak', 'kontrak', kontrakId, { status: 'draf' }, { status: 'aktif' });
+  }
+
+  public terminateContractEarly(kontrakId: string, alasan: string, actor: Profile): void {
+    // BR-05: Pengakhiran lebih awal hanya oleh Pemilik, wajib dengan alasan, berlaku sampai akhir bulan berjalan
+    if (actor.peran !== 'pemilik') {
+      throw new Error('Pengakhiran kontrak lebih awal hanya dapat dilakukan oleh Pemilik (BR-05)');
+    }
+    if (!alasan || alasan.trim().length === 0) {
+      throw new Error('Alasan pengakhiran kontrak wajib diisi (BR-05)');
+    }
+
+    const k = this.kontrak.find(item => item.id === kontrakId);
+    if (!k) throw new Error('Kontrak tidak ditemukan');
+
+    k.status = 'diakhiri';
+    k.alasan_berakhir = alasan;
+    k.tanggal_berakhir_aktual = '2026-10-31'; // Akhir bulan berjalan (acuan 15 Okt 2026)
+
+    this.logAudit(actor, 'akhiri:kontrak', 'kontrak', kontrakId, { status: 'aktif' }, { status: 'diakhiri', alasan });
+  }
+
+  // --- TAGIHAN & PEMBAYARAN ---
+  public getInvoices(): Tagihan[] {
+    return this.tagihan.map(t => {
+      const k = this.kontrak.find(c => c.id === t.kontrak_id);
+      const unit = k ? this.units.find(u => u.id === k.unit_id) : undefined;
+      const penyewa = k ? this.profiles.find(p => p.id === k.penyewa_id) : undefined;
+      
+      // Hitung denda dinamis per 15 Oktober 2026 (atau tanggal bayar)
+      let calculatedDenda = t.denda;
+      if (t.status !== 'lunas') {
+        calculatedDenda = calculateDenda(t.jatuh_tempo, '2026-10-15');
+      }
+
+      const total_tagihan = t.nominal_sewa + calculatedDenda;
+      const sisa_tagihan = Math.max(0, total_tagihan - t.terbayar);
+
+      return {
+        ...t,
+        denda: calculatedDenda,
+        total_tagihan,
+        sisa_tagihan,
+        kontrak: k ? { ...k, unit, penyewa } : undefined,
+      };
+    });
+  }
+
+  public generateMonthlyInvoices(periode: string, actor: Profile): number {
+    if (actor.peran !== 'pengelola') {
+      throw new Error('Hanya Pengelola yang berhak membuat tagihan bulanan (BR-06)');
+    }
+
+    // Format periode: YYYY-MM-01
+    const activeContracts = this.kontrak.filter(k => k.status === 'aktif');
+    let createdCount = 0;
+
+    const periodeStr = periode.slice(0, 7).replace('-', ''); // 202610
+    const jatuhTempo = `${periode.slice(0, 7)}-10`; // Selalu tanggal 10 (BR-06)
+
+    for (const k of activeContracts) {
+      // BR-06: Satu kontrak hanya punya satu tagihan per periode
+      const exists = this.tagihan.some(t => t.kontrak_id === k.id && t.periode.startsWith(periode.slice(0, 7)));
+      if (!exists) {
+        const seq = this.tagihan.length + 1;
+        const nomor = `INV-${periodeStr}-${String(seq).padStart(4, '0')}`;
+
+        const newTagihan: Tagihan = {
+          id: crypto.randomUUID(),
+          nomor,
+          kontrak_id: k.id,
+          periode: `${periode.slice(0, 7)}-01`,
+          jatuh_tempo: jatuhTempo,
+          nominal_sewa: k.harga_sewa_bulanan,
+          denda: 0,
+          terbayar: 0,
+          status: 'belum_bayar',
+        };
+
+        this.tagihan.push(newTagihan);
+        createdCount++;
+      }
+    }
+
+    this.logAudit(actor, 'buat_massal:tagihan', 'tagihan', periode, null, { createdCount, periode });
+    return createdCount;
+  }
+
+  public recordPayment(data: {
+    tagihan_id: string;
+    jumlah: number;
+    metode: 'tunai' | 'transfer';
+    bukti_path?: string;
+    tanggal_bayar: string;
+    actor: Profile;
+  }): Pembayaran {
+    if (data.actor.peran !== 'pengelola') {
+      throw new Error('Hanya Pengelola yang berhak mencatat pembayaran (BR-08)');
+    }
+
+    const t = this.tagihan.find(item => item.id === data.tagihan_id);
+    if (!t) throw new Error('Tagihan tidak ditemukan');
+
+    // Hitung denda s/d tanggal pembayaran dicatat
+    const dendaSaatBayar = calculateDenda(t.jatuh_tempo, data.tanggal_bayar);
+    const totalTagihan = t.nominal_sewa + dendaSaatBayar;
+    const sisa = totalTagihan - t.terbayar;
+
+    // BR-08: Validasi nilai pembayaran
+    const val = validatePaymentAmount(data.jumlah, sisa);
+    if (!val.valid) {
+      throw new Error(val.error);
+    }
+
+    if (data.metode === 'transfer' && !data.bukti_path) {
+      throw new Error('Pembayaran transfer wajib melampirkan foto bukti transfer (BR-08)');
+    }
+
+    const payment: Pembayaran = {
+      id: crypto.randomUUID(),
+      tagihan_id: data.tagihan_id,
+      jumlah: data.jumlah,
+      metode: data.metode,
+      tanggal_bayar: data.tanggal_bayar,
+      bukti_path: data.bukti_path || null,
+      status: 'sah',
+      dicatat_oleh: data.actor.id,
+      dibuat_pada: new Date().toISOString(),
+    };
+
+    this.pembayaran.push(payment);
+
+    // Update status tagihan otomatis (BR-08)
+    t.denda = dendaSaatBayar;
+    t.terbayar += data.jumlah;
+    if (t.terbayar >= totalTagihan) {
+      t.status = 'lunas';
+    } else {
+      t.status = 'sebagian';
+    }
+
+    this.logAudit(data.actor, 'catat:pembayaran', 'pembayaran', payment.id, null, payment);
+    return payment;
+  }
+
+  public cancelPayment(paymentId: string, alasan: string, actor: Profile): void {
+    // BR-09: Pembatalan pembayaran hanya oleh Pemilik disertai alasan
+    if (actor.peran !== 'pemilik') {
+      throw new Error('Hanya Pemilik yang berhak membatalkan pembayaran (BR-09)');
+    }
+    if (!alasan || alasan.trim().length === 0) {
+      throw new Error('Alasan pembatalan pembayaran wajib diisi (BR-09)');
+    }
+
+    const p = this.pembayaran.find(item => item.id === paymentId);
+    if (!p) throw new Error('Pembayaran tidak ditemukan');
+
+    p.status = 'dibatalkan';
+    p.alasan_batal = alasan;
+    p.dibatalkan_oleh = actor.id;
+
+    // Hitung ulang tagihan
+    const t = this.tagihan.find(item => item.id === p.tagihan_id);
+    if (t) {
+      const validPayments = this.pembayaran.filter(item => item.tagihan_id === t.id && item.status === 'sah');
+      t.terbayar = validPayments.reduce((acc, curr) => acc + curr.jumlah, 0);
+      const totalHarusBayar = t.nominal_sewa + t.denda;
+      if (t.terbayar === 0) {
+        t.status = 'belum_bayar';
+      } else if (t.terbayar >= totalHarusBayar) {
+        t.status = 'lunas';
+      } else {
+        t.status = 'sebagian';
+      }
+    }
+
+    this.logAudit(actor, 'batal:pembayaran', 'pembayaran', paymentId, { status: 'sah' }, { status: 'dibatalkan', alasan });
+  }
+
+  public cancelInvoice(tagihanId: string, actor: Profile): void {
+    if (actor.peran !== 'pemilik') {
+      throw new Error('Hanya Pemilik yang berhak membatalkan tagihan (BR-09)');
+    }
+
+    const t = this.tagihan.find(item => item.id === tagihanId);
+    if (!t) throw new Error('Tagihan tidak ditemukan');
+
+    // BR-09: Tagihan hanya bisa dibatalkan Pemilik bila belum ada pembayaran sama sekali
+    const hasPayments = this.pembayaran.some(p => p.tagihan_id === tagihanId && p.status === 'sah');
+    if (hasPayments || t.terbayar > 0) {
+      throw new Error('Tagihan yang sudah memiliki catatan pembayaran tidak bisa dibatalkan (BR-09)');
+    }
+
+    t.status = 'dibatalkan';
+    this.logAudit(actor, 'batal:tagihan', 'tagihan', tagihanId, { status: 'belum_bayar' }, { status: 'dibatalkan' });
+  }
+
+  // --- LAPORAN KERUSAKAN ---
+  public getDamageReports(): LaporanKerusakan[] {
+    return this.kerusakan.map(lk => ({
+      ...lk,
+      unit: this.units.find(u => u.id === lk.unit_id),
+      pelapor: this.profiles.find(p => p.id === lk.pelapor_id),
+    }));
+  }
+
+  public createDamageReport(data: {
+    unit_id: string;
+    kategori: string;
+    judul: string;
+    deskripsi?: string;
+    foto_paths: string[];
+    actor: Profile;
+  }): LaporanKerusakan {
+    // BR-11: Laporan kerusakan hanya bisa dibuat penyewa yang memiliki kontrak aktif
+    const activeContract = this.kontrak.find(
+      k => k.penyewa_id === data.actor.id && k.unit_id === data.unit_id && k.status === 'aktif'
+    );
+    if (!activeContract) {
+      throw new Error('Laporan kerusakan hanya bisa dibuat oleh penyewa dengan kontrak aktif di unit tersebut (BR-11)');
+    }
+
+    // BR-11: Foto 1 s/d 3
+    if (!data.foto_paths || data.foto_paths.length < 1 || data.foto_paths.length > 3) {
+      throw new Error('Setiap laporan kerusakan wajib melampirkan 1 sampai 3 foto (BR-11)');
+    }
+
+    // BR-11: Satu penyewa paling banyak memiliki 3 laporan terbuka
+    const openCount = this.kerusakan.filter(
+      lk => lk.pelapor_id === data.actor.id &&
+      ['dilaporkan', 'diproses', 'menunggu_persetujuan'].includes(lk.status)
+    ).length;
+
+    if (!canCreateDamageReport(openCount)) {
+      throw new Error('Anda sudah memiliki 3 laporan kerusakan terbuka. Selesaikan atau tutup laporan sebelumnya (BR-11)');
+    }
+
+    const seq = this.kerusakan.length + 1;
+    const nomor = `LK-2026-${String(seq).padStart(4, '0')}`;
+
+    const report: LaporanKerusakan = {
+      id: crypto.randomUUID(),
+      nomor,
+      kontrak_id: activeContract.id,
+      unit_id: data.unit_id,
+      pelapor_id: data.actor.id,
+      kategori: data.kategori,
+      judul: data.judul,
+      deskripsi: data.deskripsi,
+      foto_paths: data.foto_paths,
+      status: 'dilaporkan',
+      dibuat_pada: new Date().toISOString(),
+    };
+
+    this.kerusakan.push(report);
+    this.logAudit(data.actor, 'buat:laporan_kerusakan', 'laporan_kerusakan', report.id, null, report);
+    return report;
+  }
+
+  public processDamageReport(reportId: string, estimasiBiaya: number, actor: Profile): void {
+    if (actor.peran !== 'pengelola') {
+      throw new Error('Hanya Pengelola yang berhak memproses laporan kerusakan (BR-12)');
+    }
+
+    const r = this.kerusakan.find(item => item.id === reportId);
+    if (!r) throw new Error('Laporan tidak ditemukan');
+
+    r.estimasi_biaya = estimasiBiaya;
+
+    // BR-12: Estimasi di atas Rp1.000.000 wajib persetujuan Pemilik
+    if (estimasiBiaya > 1000000) {
+      r.status = 'menunggu_persetujuan';
+    } else {
+      r.status = 'diproses';
+    }
+
+    this.logAudit(actor, 'proses:laporan_kerusakan', 'laporan_kerusakan', reportId, null, { estimasiBiaya, status: r.status });
+  }
+
+  public approveDamageReport(reportId: string, actor: Profile): void {
+    if (actor.peran !== 'pemilik') {
+      throw new Error('Hanya Pemilik yang berhak menyetujui biaya perbaikan besar (BR-12)');
+    }
+    const r = this.kerusakan.find(item => item.id === reportId);
+    if (!r) throw new Error('Laporan tidak ditemukan');
+
+    r.status = 'diproses';
+    r.disetujui_oleh = actor.id;
+
+    this.logAudit(actor, 'setujui:laporan_kerusakan', 'laporan_kerusakan', reportId, null, { status: 'diproses' });
+  }
+
+  public closeDamageReport(reportId: string, actor: Profile): void {
+    const r = this.kerusakan.find(item => item.id === reportId);
+    if (!r) throw new Error('Laporan tidak ditemukan');
+
+    // BR-12: Ditutup oleh penyewa pelapor, atau Pengelola setelah selesai
+    r.status = 'ditutup';
+    this.logAudit(actor, 'tutup:laporan_kerusakan', 'laporan_kerusakan', reportId, null, { status: 'ditutup' });
+  }
+
+  // --- AUDIT LOG ---
+  public getAuditLogs(): AuditLog[] {
+    return this.auditLogs.map(log => ({
+      ...log,
+      pelaku: this.profiles.find(p => p.id === log.pelaku_id),
+    }));
+  }
+
+  private logAudit(
+    actor: Profile,
+    aksi: string,
+    tabel: string,
+    data_id: string,
+    sebelum: any,
+    sesudah: any
+  ): void {
+    const log: AuditLog = {
+      id: this.auditLogs.length + 1,
+      pelaku_id: actor.id,
+      peran: actor.peran,
+      aksi,
+      tabel,
+      data_id,
+      sebelum,
+      sesudah,
+      dibuat_pada: new Date().toISOString(),
+    };
+    this.auditLogs.unshift(log); // Taruh di awal
+  }
+}
+
+export const dataStore = new DataStore();
