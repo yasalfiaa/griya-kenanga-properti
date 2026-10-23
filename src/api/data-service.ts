@@ -101,7 +101,7 @@ class DataStore {
         k => k.unit_id === id && (k.status === 'draf' || k.status === 'aktif')
       );
       if (hasActiveContract) {
-        throw new Error('Unit masih memiliki kontrak draf atau aktif sehingga tidak boleh dinonaktifkan (BR-04)');
+        throw new Error('Unit masih memiliki kontrak draf atau aktif sehingga tidak boleh dinonaktifkan.');
       }
     }
 
@@ -113,7 +113,7 @@ class DataStore {
 
   public updateUnitPrice(id: string, newPrice: number, actor: Profile): void {
     if (actor.peran !== 'pemilik') {
-      throw new Error('Hanya Pemilik yang berhak mengubah harga sewa unit (BR-04)');
+      throw new Error('Hanya Pemilik yang berhak mengubah harga sewa unit.');
     }
     const unit = this.units.find(u => u.id === id);
     if (!unit) throw new Error('Unit tidak ditemukan');
@@ -171,18 +171,18 @@ class DataStore {
     const unit = this.units.find(u => u.id === data.unit_id);
     if (!unit) throw new Error('Unit tidak ditemukan');
 
-    // BR-04: Kontrak baru hanya bisa dibuat untuk unit berstatus "tersedia"
+    // Kontrak baru hanya bisa dibuat untuk unit berstatus "tersedia"
     if (unit.status !== 'tersedia') {
-      throw new Error(`Unit berstatus ${unit.status}, hanya unit berstatus 'tersedia' yang dapat dikontrakkan (BR-04)`);
+      throw new Error(`Unit berstatus ${unit.status}, hanya unit berstatus 'tersedia' yang dapat dikontrakkan.`);
     }
 
-    // BR-02: Tanggal selesai dihitung otomatis
+    // Tanggal selesai dihitung otomatis
     const tanggal_selesai = calculateContractEndDate(data.tanggal_mulai, data.durasi_bulan);
 
-    // BR-01: Validasi Kontrak Beririsan
+    // Validasi Kontrak Beririsan
     const existingUnitContracts = this.kontrak.filter(k => k.unit_id === data.unit_id);
     if (isContractOverlapping(existingUnitContracts, data.tanggal_mulai, tanggal_selesai)) {
-      throw new Error('Unit sudah memiliki kontrak berstatus draf atau aktif pada periode tersebut (BR-01)');
+      throw new Error('Unit sudah memiliki kontrak berstatus draf atau aktif pada periode tersebut. Periode sewa tidak boleh beririsan.');
     }
 
     // Nomor urut baru
@@ -216,18 +216,18 @@ class DataStore {
     const k = this.kontrak.find(item => item.id === kontrakId);
     if (!k) throw new Error('Kontrak tidak ditemukan');
 
-    // BR-03: Identitas penyewa harus sudah diverifikasi
+    // Identitas penyewa harus sudah diverifikasi
     const ident = this.identitas.find(i => i.penyewa_id === k.penyewa_id);
     if (!ident || ident.status_verifikasi !== 'terverifikasi') {
-      throw new Error('Kontrak draf hanya bisa diaktifkan bila identitas penyewa sudah diverifikasi Pengelola (BR-03)');
+      throw new Error('Kontrak draf hanya bisa diaktifkan bila identitas penyewa sudah diverifikasi oleh Pengelola.');
     }
 
-    // BR-03: Satu penyewa paling banyak memiliki satu kontrak aktif
+    // Satu penyewa paling banyak memiliki satu kontrak aktif
     const hasOtherActive = this.kontrak.some(
       other => other.penyewa_id === k.penyewa_id && other.status === 'aktif' && other.id !== kontrakId
     );
     if (hasOtherActive) {
-      throw new Error('Penyewa sudah memiliki kontrak aktif lain. Satu penyewa hanya boleh punya 1 kontrak aktif (BR-03)');
+      throw new Error('Penyewa sudah memiliki kontrak aktif lain. Satu penyewa hanya boleh memiliki 1 kontrak aktif.');
     }
 
     k.status = 'aktif';
@@ -235,12 +235,12 @@ class DataStore {
   }
 
   public terminateContractEarly(kontrakId: string, alasan: string, actor: Profile): void {
-    // BR-05: Pengakhiran lebih awal hanya oleh Pemilik, wajib dengan alasan, berlaku sampai akhir bulan berjalan
+    // Pengakhiran lebih awal hanya oleh Pemilik, wajib dengan alasan, berlaku sampai akhir bulan berjalan
     if (actor.peran !== 'pemilik') {
-      throw new Error('Pengakhiran kontrak lebih awal hanya dapat dilakukan oleh Pemilik (BR-05)');
+      throw new Error('Pengakhiran kontrak lebih awal hanya dapat dilakukan oleh Pemilik.');
     }
     if (!alasan || alasan.trim().length === 0) {
-      throw new Error('Alasan pengakhiran kontrak wajib diisi (BR-05)');
+      throw new Error('Alasan pengakhiran kontrak wajib diisi.');
     }
 
     const k = this.kontrak.find(item => item.id === kontrakId);
@@ -281,7 +281,7 @@ class DataStore {
 
   public generateMonthlyInvoices(periode: string, actor: Profile): number {
     if (actor.peran !== 'pengelola') {
-      throw new Error('Hanya Pengelola yang berhak membuat tagihan bulanan (BR-06)');
+      throw new Error('Hanya Pengelola yang berhak membuat tagihan bulanan.');
     }
 
     // Format periode: YYYY-MM-01
@@ -328,7 +328,7 @@ class DataStore {
     actor: Profile;
   }): Pembayaran {
     if (data.actor.peran !== 'pengelola') {
-      throw new Error('Hanya Pengelola yang berhak mencatat pembayaran (BR-08)');
+      throw new Error('Hanya Pengelola yang berhak mencatat pembayaran.');
     }
 
     const t = this.tagihan.find(item => item.id === data.tagihan_id);
@@ -339,14 +339,14 @@ class DataStore {
     const totalTagihan = t.nominal_sewa + dendaSaatBayar;
     const sisa = totalTagihan - t.terbayar;
 
-    // BR-08: Validasi nilai pembayaran
+    // Validasi nilai pembayaran
     const val = validatePaymentAmount(data.jumlah, sisa);
     if (!val.valid) {
       throw new Error(val.error);
     }
 
     if (data.metode === 'transfer' && !data.bukti_path) {
-      throw new Error('Pembayaran transfer wajib melampirkan foto bukti transfer (BR-08)');
+      throw new Error('Pembayaran transfer wajib melampirkan foto bukti transfer.');
     }
 
     const payment: Pembayaran = {
@@ -377,12 +377,11 @@ class DataStore {
   }
 
   public cancelPayment(paymentId: string, alasan: string, actor: Profile): void {
-    // BR-09: Pembatalan pembayaran hanya oleh Pemilik disertai alasan
     if (actor.peran !== 'pemilik') {
-      throw new Error('Hanya Pemilik yang berhak membatalkan pembayaran (BR-09)');
+      throw new Error('Hanya Pemilik yang berhak membatalkan pembayaran.');
     }
     if (!alasan || alasan.trim().length === 0) {
-      throw new Error('Alasan pembatalan pembayaran wajib diisi (BR-09)');
+      throw new Error('Alasan pembatalan pembayaran wajib diisi.');
     }
 
     const p = this.pembayaran.find(item => item.id === paymentId);
@@ -412,16 +411,16 @@ class DataStore {
 
   public cancelInvoice(tagihanId: string, actor: Profile): void {
     if (actor.peran !== 'pemilik') {
-      throw new Error('Hanya Pemilik yang berhak membatalkan tagihan (BR-09)');
+      throw new Error('Hanya Pemilik yang berhak membatalkan tagihan.');
     }
 
     const t = this.tagihan.find(item => item.id === tagihanId);
     if (!t) throw new Error('Tagihan tidak ditemukan');
 
-    // BR-09: Tagihan hanya bisa dibatalkan Pemilik bila belum ada pembayaran sama sekali
+    // Tagihan hanya bisa dibatalkan Pemilik bila belum ada pembayaran sama sekali
     const hasPayments = this.pembayaran.some(p => p.tagihan_id === tagihanId && p.status === 'sah');
     if (hasPayments || t.terbayar > 0) {
-      throw new Error('Tagihan yang sudah memiliki catatan pembayaran tidak bisa dibatalkan (BR-09)');
+      throw new Error('Tagihan yang sudah memiliki catatan pembayaran tidak bisa dibatalkan.');
     }
 
     t.status = 'dibatalkan';
@@ -445,27 +444,27 @@ class DataStore {
     foto_paths: string[];
     actor: Profile;
   }): LaporanKerusakan {
-    // BR-11: Laporan kerusakan hanya bisa dibuat penyewa yang memiliki kontrak aktif
+    // Laporan kerusakan hanya bisa dibuat penyewa yang memiliki kontrak aktif
     const activeContract = this.kontrak.find(
       k => k.penyewa_id === data.actor.id && k.unit_id === data.unit_id && k.status === 'aktif'
     );
     if (!activeContract) {
-      throw new Error('Laporan kerusakan hanya bisa dibuat oleh penyewa dengan kontrak aktif di unit tersebut (BR-11)');
+      throw new Error('Laporan kerusakan hanya bisa dibuat oleh penyewa dengan kontrak aktif di unit tersebut.');
     }
 
-    // BR-11: Foto 1 s/d 3
+    // Foto 1 s/d 3
     if (!data.foto_paths || data.foto_paths.length < 1 || data.foto_paths.length > 3) {
-      throw new Error('Setiap laporan kerusakan wajib melampirkan 1 sampai 3 foto (BR-11)');
+      throw new Error('Setiap laporan kerusakan wajib melampirkan 1 sampai 3 foto.');
     }
 
-    // BR-11: Satu penyewa paling banyak memiliki 3 laporan terbuka
+    // Satu penyewa paling banyak memiliki 3 laporan terbuka
     const openCount = this.kerusakan.filter(
       lk => lk.pelapor_id === data.actor.id &&
       ['dilaporkan', 'diproses', 'menunggu_persetujuan'].includes(lk.status)
     ).length;
 
     if (!canCreateDamageReport(openCount)) {
-      throw new Error('Anda sudah memiliki 3 laporan kerusakan terbuka. Selesaikan atau tutup laporan sebelumnya (BR-11)');
+      throw new Error('Anda sudah memiliki 3 laporan kerusakan yang masih terbuka. Harap selesaikan atau tunggu laporan sebelumnya ditutup terlebih dahulu.');
     }
 
     const seq = this.kerusakan.length + 1;
@@ -492,7 +491,7 @@ class DataStore {
 
   public processDamageReport(reportId: string, estimasiBiaya: number, actor: Profile): void {
     if (actor.peran !== 'pengelola') {
-      throw new Error('Hanya Pengelola yang berhak memproses laporan kerusakan (BR-12)');
+      throw new Error('Hanya Pengelola yang berhak memproses laporan kerusakan.');
     }
 
     const r = this.kerusakan.find(item => item.id === reportId);
@@ -500,7 +499,7 @@ class DataStore {
 
     r.estimasi_biaya = estimasiBiaya;
 
-    // BR-12: Estimasi di atas Rp1.000.000 wajib persetujuan Pemilik
+    // Estimasi di atas Rp1.000.000 wajib persetujuan Pemilik
     if (estimasiBiaya > 1000000) {
       r.status = 'menunggu_persetujuan';
     } else {
@@ -512,7 +511,7 @@ class DataStore {
 
   public approveDamageReport(reportId: string, actor: Profile): void {
     if (actor.peran !== 'pemilik') {
-      throw new Error('Hanya Pemilik yang berhak menyetujui biaya perbaikan besar (BR-12)');
+      throw new Error('Hanya Pemilik yang berhak menyetujui biaya perbaikan besar.');
     }
     const r = this.kerusakan.find(item => item.id === reportId);
     if (!r) throw new Error('Laporan tidak ditemukan');

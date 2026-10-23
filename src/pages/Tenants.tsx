@@ -71,8 +71,8 @@ export const Tenants: React.FC = () => {
           </h1>
           <p className="text-sm text-slate-500">
             {role === 'pemilik'
-              ? 'Proteksi Privasi (BR-10): Pemilik hanya melihat 4 angka terakhir NIK dan tidak melihat foto KTP.'
-              : 'Verifikasi KTP Pengelola (BR-03): Kontrak draf hanya bisa diaktifkan bila identitas sudah diverifikasi.'}
+              ? 'Proteksi Privasi: Pemilik hanya melihat 4 angka terakhir NIK dan tidak melihat foto KTP.'
+              : 'Verifikasi KTP Pengelola: Kontrak draf hanya bisa diaktifkan bila identitas sudah diverifikasi.'}
           </p>
         </div>
       </div>

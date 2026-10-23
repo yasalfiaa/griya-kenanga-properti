@@ -3,6 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { dataStore } from '../api/data-service';
 import { Unit } from '../types/database';
 import { formatRupiah } from '../utils/business-rules';
+import { ModalErrorAlert } from '../components/ModalErrorAlert';
+import { parseErrorMessage } from '../utils/error-handler';
 import { Building2, Edit2, AlertCircle, CheckCircle2, Shield } from 'lucide-react';
 
 export const Units: React.FC = () => {
@@ -14,10 +16,12 @@ export const Units: React.FC = () => {
   // Modal Ubah Harga (Pemilik)
   const [editingPriceUnit, setEditingPriceUnit] = useState<Unit | null>(null);
   const [newPrice, setNewPrice] = useState<number>(0);
+  const [priceModalError, setPriceModalError] = useState<string | null>(null);
 
   // Modal Ubah Status (Pengelola)
   const [editingStatusUnit, setEditingStatusUnit] = useState<Unit | null>(null);
   const [newStatus, setNewStatus] = useState<'tersedia' | 'perbaikan' | 'nonaktif'>('tersedia');
+  const [statusModalError, setStatusModalError] = useState<string | null>(null);
 
   const filteredUnits = units.filter(u =>
     selectedFloor === 'all' ? true : u.lantai === selectedFloor
@@ -26,24 +30,28 @@ export const Units: React.FC = () => {
   const handleUpdatePrice = () => {
     if (!editingPriceUnit || !currentUser) return;
     try {
+      setPriceModalError(null);
       dataStore.updateUnitPrice(editingPriceUnit.id, newPrice, currentUser);
       setUnits(dataStore.getUnits());
-      setMessage({ type: 'success', text: `Harga sewa unit ${editingPriceUnit.kode} berhasil diubah ke ${formatRupiah(newPrice)} (BR-04: Harga di kontrak aktif tetap terkunci).` });
+      setMessage({ type: 'success', text: `Harga sewa unit ${editingPriceUnit.kode} berhasil diubah ke ${formatRupiah(newPrice)} (Harga di kontrak aktif tetap terkunci).` });
       setEditingPriceUnit(null);
+      setPriceModalError(null);
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
+      setPriceModalError(parseErrorMessage(err));
     }
   };
 
   const handleUpdateStatus = () => {
     if (!editingStatusUnit || !currentUser) return;
     try {
+      setStatusModalError(null);
       dataStore.updateUnitStatus(editingStatusUnit.id, newStatus, currentUser);
       setUnits(dataStore.getUnits());
       setMessage({ type: 'success', text: `Status unit ${editingStatusUnit.kode} berhasil diubah ke '${newStatus}'.` });
       setEditingStatusUnit(null);
+      setStatusModalError(null);
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
+      setStatusModalError(parseErrorMessage(err));
     }
   };
 
@@ -197,21 +205,34 @@ export const Units: React.FC = () => {
               <Shield className="w-5 h-5 text-purple-600" /> Ubah Harga Sewa Kamar {editingPriceUnit.kode}
             </h3>
             <p className="text-xs text-slate-500">
-              Sesuai aturan BR-04: Harga yang diubah Pemilik berlaku untuk kontrak baru berikutnya. Harga pada kontrak yang sedang aktif tetap terkunci.
+              Harga yang diubah Pemilik berlaku untuk kontrak baru berikutnya. Harga pada kontrak yang sedang aktif tetap terkunci.
             </p>
+
+            {/* Error Alert Standar Modal */}
+            <ModalErrorAlert
+              error={priceModalError}
+              onDismiss={() => setPriceModalError(null)}
+            />
+
             <div>
               <label className="text-xs font-semibold text-slate-700 block mb-1">Harga Sewa Bulanan (Rp)</label>
               <input
                 type="number"
                 step="50000"
                 value={newPrice}
-                onChange={(e) => setNewPrice(Number(e.target.value))}
+                onChange={(e) => {
+                  setNewPrice(Number(e.target.value));
+                  if (priceModalError) setPriceModalError(null);
+                }}
                 className="w-full text-sm border border-slate-300 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-purple-500 focus:outline-none"
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <button
-                onClick={() => setEditingPriceUnit(null)}
+                onClick={() => {
+                  setEditingPriceUnit(null);
+                  setPriceModalError(null);
+                }}
                 className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
               >
                 Batal
@@ -233,13 +254,23 @@ export const Units: React.FC = () => {
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
             <h3 className="font-bold text-slate-900 text-lg">Ubah Status Kamar {editingStatusUnit.kode}</h3>
             <p className="text-xs text-slate-500">
-              Sesuai aturan BR-04: Unit yang masih punya kontrak draf atau aktif dilarang dinonaktifkan.
+              Unit yang masih memiliki kontrak draf atau aktif dilarang dinonaktifkan.
             </p>
+
+            {/* Error Alert Standar Modal */}
+            <ModalErrorAlert
+              error={statusModalError}
+              onDismiss={() => setStatusModalError(null)}
+            />
+
             <div>
               <label className="text-xs font-semibold text-slate-700 block mb-1">Pilih Status Baru</label>
               <select
                 value={newStatus}
-                onChange={(e) => setNewStatus(e.target.value as any)}
+                onChange={(e) => {
+                  setNewStatus(e.target.value as any);
+                  if (statusModalError) setStatusModalError(null);
+                }}
                 className="w-full text-sm border border-slate-300 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               >
                 <option value="tersedia">Tersedia</option>
@@ -249,7 +280,10 @@ export const Units: React.FC = () => {
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <button
-                onClick={() => setEditingStatusUnit(null)}
+                onClick={() => {
+                  setEditingStatusUnit(null);
+                  setStatusModalError(null);
+                }}
                 className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
               >
                 Batal

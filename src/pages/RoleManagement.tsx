@@ -14,7 +14,7 @@ export const RoleManagement: React.FC = () => {
     return (
       <div className="bg-rose-50 border border-rose-200 rounded-2xl p-8 text-center space-y-3">
         <AlertCircle className="w-12 h-12 text-rose-600 mx-auto" />
-        <h2 className="text-xl font-bold text-rose-900">Akses Dibatasi (BR-10)</h2>
+        <h2 className="text-xl font-bold text-rose-900">Akses Dibatasi</h2>
         <p className="text-sm text-rose-700">Hanya Pemilik yang berhak mengatur peran akun staf dan penyewa.</p>
       </div>
     );
@@ -23,7 +23,7 @@ export const RoleManagement: React.FC = () => {
   const handleChangeRole = (userId: string, newRole: RoleType) => {
     // BR-10: Pemilik tidak bisa mengubah peran akunnya sendiri
     if (userId === currentUser?.id) {
-      setMessage({ type: 'error', text: 'Pemilik tidak dapat mengubah peran akunnya sendiri (BR-10).' });
+      setMessage({ type: 'error', text: 'Pemilik tidak dapat mengubah peran akunnya sendiri.' });
       return;
     }
 
@@ -46,7 +46,7 @@ export const RoleManagement: React.FC = () => {
           <UserCheck className="w-6 h-6 text-purple-600" /> Pengaturan Hak Akses & Peran Akun
         </h1>
         <p className="text-sm text-slate-500">
-          Akun baru yang mendaftar sendiri otomatis Penyewa. Peran Pengelola dan Pemilik hanya bisa diberikan oleh Pemilik (BR-10).
+          Akun baru yang mendaftar sendiri otomatis Penyewa. Peran Pengelola dan Pemilik hanya bisa diberikan oleh Pemilik.
         </p>
       </div>
 
@@ -80,7 +80,7 @@ export const RoleManagement: React.FC = () => {
                 <th className="py-3.5 px-4">Nama Lengkap</th>
                 <th className="py-3.5 px-4">Email & Kontak</th>
                 <th className="py-3.5 px-4">Peran Saat Ini</th>
-                <th className="py-3.5 px-4 text-right">Ubah Peran (BR-10)</th>
+                <th className="py-3.5 px-4 text-right">Ubah Peran</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -110,7 +110,7 @@ export const RoleManagement: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       {isSelf ? (
-                        <span className="text-xs text-slate-400 italic">Tidak dapat diubah (BR-10)</span>
+                        <span className="text-xs text-slate-400 italic">Tidak dapat diubah</span>
                       ) : (
                         <select
                           value={p.peran}

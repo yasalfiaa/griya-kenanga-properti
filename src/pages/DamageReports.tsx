@@ -3,6 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { dataStore } from '../api/data-service';
 import { LaporanKerusakan } from '../types/database';
 import { formatRupiah } from '../utils/business-rules';
+import { ModalErrorAlert } from '../components/ModalErrorAlert';
+import { parseErrorMessage } from '../utils/error-handler';
 import {
   Wrench,
   Plus,
@@ -28,10 +30,12 @@ export const DamageReports: React.FC = () => {
   const [fotoPaths, setFotoPaths] = useState<string[]>([
     'kerusakan/demo/foto-1.jpg',
   ]);
+  const [createModalError, setCreateModalError] = useState<string | null>(null);
 
   // Modal Proses Laporan (Pengelola)
   const [processingReport, setProcessingReport] = useState<LaporanKerusakan | null>(null);
   const [estimasiBiaya, setEstimasiBiaya] = useState<number>(100000);
+  const [processModalError, setProcessModalError] = useState<string | null>(null);
 
   const filteredReports = reports.filter(r => {
     if (role === 'penyewa') {
@@ -43,12 +47,16 @@ export const DamageReports: React.FC = () => {
   const handleCreateReport = () => {
     if (!currentUser) return;
     try {
+      setCreateModalError(null);
       // Dapatkan unit id dari kontrak aktif penyewa
       const activeContract = dataStore.getContracts().find(
         k => k.penyewa_id === currentUser.id && k.status === 'aktif'
       );
       if (!activeContract) {
-        throw new Error('Anda tidak memiliki kontrak sewa aktif saat ini (BR-11)');
+        throw new Error('Anda tidak memiliki kontrak sewa aktif saat ini.');
+      }
+      if (!judul.trim()) {
+        throw new Error('Judul kerusakan wajib diisi.');
       }
 
       const newReport = dataStore.createDamageReport({
@@ -68,23 +76,26 @@ export const DamageReports: React.FC = () => {
       setShowCreateModal(false);
       setJudul('');
       setDeskripsi('');
+      setCreateModalError(null);
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
+      setCreateModalError(parseErrorMessage(err));
     }
   };
 
   const handleProcessReport = () => {
     if (!processingReport || !currentUser) return;
     try {
+      setProcessModalError(null);
       dataStore.processDamageReport(processingReport.id, estimasiBiaya, currentUser);
       setReports(dataStore.getDamageReports());
       setMessage({
         type: 'success',
-        text: `Laporan ${processingReport.nomor} berhasil diproses dengan estimasi biaya ${formatRupiah(estimasiBiaya)} (${estimasiBiaya > 1000000 ? 'Status: Menunggu Persetujuan Pemilik (BR-12)' : 'Status: Diproses'}).`,
+        text: `Laporan ${processingReport.nomor} berhasil diproses dengan estimasi biaya ${formatRupiah(estimasiBiaya)} (${estimasiBiaya > 1000000 ? 'Status: Menunggu Persetujuan Pemilik' : 'Status: Diproses'}).`,
       });
       setProcessingReport(null);
+      setProcessModalError(null);
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
+      setProcessModalError(parseErrorMessage(err));
     }
   };
 
@@ -95,10 +106,10 @@ export const DamageReports: React.FC = () => {
       setReports(dataStore.getDamageReports());
       setMessage({
         type: 'success',
-        text: `Biaya perbaikan laporan ${report.nomor} berhasil disetujui Pemilik (BR-12).`,
+        text: `Biaya perbaikan laporan ${report.nomor} berhasil disetujui Pemilik.`,
       });
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
+      setMessage({ type: 'error', text: parseErrorMessage(err) });
     }
   };
 
@@ -112,7 +123,7 @@ export const DamageReports: React.FC = () => {
         text: `Laporan kerusakan ${report.nomor} telah resmi ditutup (selesai).`,
       });
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
+      setMessage({ type: 'error', text: parseErrorMessage(err) });
     }
   };
 
@@ -142,7 +153,7 @@ export const DamageReports: React.FC = () => {
             <Wrench className="w-6 h-6 text-emerald-600" /> Laporan Kerusakan & Perbaikan Unit
           </h1>
           <p className="text-sm text-slate-500">
-            Biaya di atas Rp1.000.000 wajib persetujuan Pemilik. Maksimal 3 laporan terbuka per penyewa (BR-11, BR-12).
+            Biaya di atas Rp1.000.000 wajib persetujuan Pemilik. Maksimal 3 laporan terbuka per penyewa.
           </p>
         </div>
 
@@ -275,8 +286,14 @@ export const DamageReports: React.FC = () => {
               <Wrench className="w-5 h-5 text-emerald-600" /> Buat Laporan Kerusakan Kamar
             </h3>
             <p className="text-xs text-slate-500">
-              Sesuai aturan BR-11: Lampirkan 1 sampai 3 foto (maks 2MB per foto, format JPG/PNG). Maksimal 3 laporan terbuka.
+              Lampirkan 1 sampai 3 foto bukti kerusakan (format JPG/PNG). Maksimal 3 laporan kerusakan terbuka per penyewa.
             </p>
+
+            {/* Error Alert Standar Modal */}
+            <ModalErrorAlert
+              error={createModalError}
+              onDismiss={() => setCreateModalError(null)}
+            />
 
             <div className="space-y-3">
               <div>
@@ -299,7 +316,10 @@ export const DamageReports: React.FC = () => {
                 <input
                   type="text"
                   value={judul}
-                  onChange={(e) => setJudul(e.target.value)}
+                  onChange={(e) => {
+                    setJudul(e.target.value);
+                    if (createModalError) setCreateModalError(null);
+                  }}
                   placeholder="Contoh: Keran wastafel patah dan bocor"
                   className="w-full text-xs border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 />
@@ -329,7 +349,10 @@ export const DamageReports: React.FC = () => {
 
             <div className="flex justify-end gap-2 pt-2">
               <button
-                onClick={() => setShowCreateModal(false)}
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setCreateModalError(null);
+                }}
                 className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
               >
                 Batal
@@ -351,8 +374,14 @@ export const DamageReports: React.FC = () => {
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
             <h3 className="font-bold text-slate-900 text-lg">Proses Laporan {processingReport.nomor}</h3>
             <p className="text-xs text-slate-500">
-              Sesuai aturan BR-12: Estimasi biaya di atas Rp1.000.000 wajib disetujui Pemilik sebelum dikerjakan. Estimasi tepat Rp1.000.000 langsung diproses.
+              Estimasi biaya di atas Rp1.000.000 wajib disetujui Pemilik sebelum dikerjakan. Estimasi hingga Rp1.000.000 dapat langsung diproses.
             </p>
+
+            {/* Error Alert Standar Modal */}
+            <ModalErrorAlert
+              error={processModalError}
+              onDismiss={() => setProcessModalError(null)}
+            />
 
             <div>
               <label className="text-xs font-semibold text-slate-700 block mb-1">
@@ -362,14 +391,20 @@ export const DamageReports: React.FC = () => {
                 type="number"
                 step="50000"
                 value={estimasiBiaya}
-                onChange={(e) => setEstimasiBiaya(Number(e.target.value))}
+                onChange={(e) => {
+                  setEstimasiBiaya(Number(e.target.value));
+                  if (processModalError) setProcessModalError(null);
+                }}
                 className="w-full text-sm font-semibold border border-slate-300 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
               <button
-                onClick={() => setProcessingReport(null)}
+                onClick={() => {
+                  setProcessingReport(null);
+                  setProcessModalError(null);
+                }}
                 className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
               >
                 Batal

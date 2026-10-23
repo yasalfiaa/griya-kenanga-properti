@@ -97,7 +97,7 @@ export const Dashboard: React.FC = () => {
               <div>
                 <h4 className="text-sm font-semibold text-amber-900">Identitas KTP Belum Terverifikasi</h4>
                 <p className="text-xs text-amber-700 mt-0.5">
-                  Sesuai aturan (BR-03), kontrak baru hanya bisa diaktifkan jika NIK dan foto KTP Anda sudah diverifikasi oleh Pengelola.
+                  Kontrak baru hanya bisa diaktifkan jika NIK dan foto KTP Anda sudah diverifikasi oleh Pengelola.
                 </p>
               </div>
             </div>

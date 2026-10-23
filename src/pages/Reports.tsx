@@ -25,7 +25,7 @@ export const Reports: React.FC = () => {
     return (
       <div className="bg-rose-50 border border-rose-200 rounded-2xl p-8 text-center space-y-3">
         <AlertCircle className="w-12 h-12 text-rose-600 mx-auto" />
-        <h2 className="text-xl font-bold text-rose-900">Akses Dibatasi (BR-10)</h2>
+        <h2 className="text-xl font-bold text-rose-900">Akses Dibatasi</h2>
         <p className="text-sm text-rose-700 max-w-md mx-auto">
           Laporan pendapatan, tunggakan, dan okupansi per unit hanya berhak dibuka oleh Pemilik usaha. Pengelola dan Penyewa dilarang mengakses halaman ini.
         </p>
@@ -112,7 +112,7 @@ export const Reports: React.FC = () => {
             <BarChart3 className="w-6 h-6 text-purple-600" /> Laporan Eksekutif Pendapatan & Hunian
           </h1>
           <p className="text-sm text-slate-500">
-            Analisis arus kas sewa, tunggakan per unit, dan tingkat keterisian (Khusus Pemilik - BR-10).
+            Analisis arus kas sewa, tunggakan per unit, dan tingkat keterisian (Khusus Pemilik).
           </p>
         </div>
 

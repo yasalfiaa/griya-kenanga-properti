@@ -13,7 +13,7 @@ export const AuditLogPage: React.FC = () => {
     return (
       <div className="bg-rose-50 border border-rose-200 rounded-2xl p-8 text-center space-y-3">
         <AlertCircle className="w-12 h-12 text-rose-600 mx-auto" />
-        <h2 className="text-xl font-bold text-rose-900">Akses Dibatasi (BR-10)</h2>
+        <h2 className="text-xl font-bold text-rose-900">Akses Dibatasi</h2>
         <p className="text-sm text-rose-700">Hanya Pemilik yang berhak melihat jejak audit log sistem.</p>
       </div>
     );

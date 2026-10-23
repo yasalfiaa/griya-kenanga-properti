@@ -3,6 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { dataStore } from '../api/data-service';
 import { Kontrak, Unit, Profile } from '../types/database';
 import { formatRupiah, calculateContractEndDate, isContractOverlapping } from '../utils/business-rules';
+import { ModalErrorAlert } from '../components/ModalErrorAlert';
+import { parseErrorMessage } from '../utils/error-handler';
 import {
   FileText,
   Plus,
@@ -31,34 +33,34 @@ export const Contracts: React.FC = () => {
   const [tanggalMulai, setTanggalMulai] = useState('2026-11-01'); // Mulai tanggal 1
   const [durasiBulan, setDurasiBulan] = useState<1 | 3 | 6 | 12>(6);
 
-  // Validasi real-time untuk modal buat kontrak (BR-01, BR-02, BR-04)
+  // Validasi real-time untuk modal buat kontrak
   const [modalSubmitError, setModalSubmitError] = useState<string | null>(null);
 
   const modalValidationErrors = useMemo((): string[] => {
     const errors: string[] = [];
 
-    // Validasi Aturan BR-04: Hanya unit berstatus 'tersedia'
+    // Validasi: Hanya unit berstatus 'tersedia'
     if (selectedUnitId) {
       const unit = units.find(u => u.id === selectedUnitId);
       if (unit && unit.status !== 'tersedia') {
         errors.push(
-          `Aturan BR-04: Unit ${unit.kode} berstatus "${unit.status}". Kontrak sewa baru hanya dapat dibuat untuk unit yang berstatus "tersedia".`
+          `Unit ${unit.kode} berstatus "${unit.status}". Kontrak sewa baru hanya dapat dibuat untuk unit yang berstatus "tersedia".`
         );
       }
     }
 
-    // Validasi Aturan BR-02: Tanggal mulai sewa harus selalu tanggal 1 awal bulan
+    // Validasi: Tanggal mulai sewa harus selalu tanggal 1 awal bulan
     if (tanggalMulai) {
       const parts = tanggalMulai.split('-');
       const tanggalHari = parseInt(parts[2], 10);
       if (tanggalHari !== 1) {
         errors.push(
-          `Aturan BR-02: Tanggal mulai sewa harus selalu tanggal 1 di awal bulan (contoh: ${parts[0]}-${parts[1]}-01).`
+          `Tanggal mulai sewa harus selalu tanggal 1 di awal bulan (contoh: ${parts[0]}-${parts[1]}-01).`
         );
       }
     }
 
-    // Validasi Aturan BR-01: Tidak boleh ada periode kontrak tumpang tindih (kontrak tunggal)
+    // Validasi: Tidak boleh ada periode kontrak tumpang tindih
     if (selectedUnitId && tanggalMulai) {
       const parts = tanggalMulai.split('-');
       const tanggalHari = parseInt(parts[2], 10);
@@ -68,7 +70,7 @@ export const Contracts: React.FC = () => {
         if (isContractOverlapping(kontrakUnit, tanggalMulai, tanggalSelesai)) {
           const unit = units.find(u => u.id === selectedUnitId);
           errors.push(
-            `Aturan BR-01: Unit ${unit?.kode || selectedUnitId} sudah memiliki kontrak aktif/draf pada periode ${tanggalMulai} s/d ${tanggalSelesai}. Periode sewa tidak boleh beririsan.`
+            `Unit ${unit?.kode || selectedUnitId} sudah memiliki kontrak aktif atau draf pada periode ${tanggalMulai} s/d ${tanggalSelesai}. Periode sewa tidak boleh beririsan.`
           );
         }
       }
@@ -83,6 +85,7 @@ export const Contracts: React.FC = () => {
   // Modal Akhiri Kontrak (Pemilik)
   const [terminatingContract, setTerminatingContract] = useState<Kontrak | null>(null);
   const [terminateReason, setTerminateReason] = useState('');
+  const [terminateModalError, setTerminateModalError] = useState<string | null>(null);
 
   const filteredContracts = contracts.filter(c =>
     filterStatus === 'all' ? true : c.status === filterStatus
@@ -114,7 +117,7 @@ export const Contracts: React.FC = () => {
       setSelectedPenyewaId('');
       setModalSubmitError(null);
     } catch (err: any) {
-      setModalSubmitError(err.message || 'Terjadi kesalahan saat membuat kontrak.');
+      setModalSubmitError(parseErrorMessage(err));
     }
   };
 
@@ -128,13 +131,14 @@ export const Contracts: React.FC = () => {
         text: `Kontrak ${k.nomor} berhasil diaktifkan. Unit sekarang resmi terisi!`,
       });
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
+      setMessage({ type: 'error', text: parseErrorMessage(err) });
     }
   };
 
   const handleTerminateContract = () => {
     if (!terminatingContract || !currentUser) return;
     try {
+      setTerminateModalError(null);
       dataStore.terminateContractEarly(terminatingContract.id, terminateReason, currentUser);
       setContracts(dataStore.getContracts());
       setMessage({
@@ -143,8 +147,9 @@ export const Contracts: React.FC = () => {
       });
       setTerminatingContract(null);
       setTerminateReason('');
+      setTerminateModalError(null);
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
+      setTerminateModalError(parseErrorMessage(err));
     }
   };
 
@@ -172,7 +177,7 @@ export const Contracts: React.FC = () => {
             <FileText className="w-6 h-6 text-emerald-600" /> Pengelolaan Kontrak Sewa
           </h1>
           <p className="text-sm text-slate-500">
-            Penegakan aturan kontrak tunggal, tanggal mulai tanggal 1, dan pencegahan overlap (BR-01 s/d BR-05).
+            Penegakan aturan kontrak tunggal, tanggal mulai tanggal 1, dan pencegahan overlap tanggal sewa.
           </p>
         </div>
 
@@ -310,16 +315,16 @@ export const Contracts: React.FC = () => {
                 <FileText className="w-5 h-5 text-emerald-600" /> Buat Kontrak Sewa Baru
               </h3>
               <p className="text-xs text-slate-500 mt-1">
-                Sesuai aturan BR-01 s/d BR-04: Hanya unit tersedia, tanggal mulai selalu tanggal 1, dan tidak boleh ada periode beririsan.
+                Hanya unit berstatus tersedia yang dapat dipilih, tanggal mulai sewa harus selalu tanggal 1 di awal bulan, dan periode sewa tidak boleh beririsan.
               </p>
             </div>
 
-            {/* Keterangan ramah pengguna berwarna merah saat aturan bisnis dilanggar */}
+            {/* Keterangan ramah pengguna berwarna merah saat aturan belum terpenuhi */}
             {(modalValidationErrors.length > 0 || modalSubmitError) && (
               <div className="rounded-xl border border-rose-200 bg-rose-50/90 p-3.5 space-y-2">
                 <div className="flex items-center gap-2 text-rose-800 text-xs font-bold">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                  <span>Aturan bisnis yang belum terpenuhi:</span>
+                  <span>Syarat kontrak belum terpenuhi:</span>
                 </div>
                 <ul className="space-y-1.5 pl-5 list-disc list-outside text-xs text-rose-700 font-medium leading-relaxed">
                   {modalValidationErrors.map((err, i) => (
@@ -328,7 +333,7 @@ export const Contracts: React.FC = () => {
                   {modalSubmitError && <li>{modalSubmitError}</li>}
                 </ul>
                 <div className="pl-5 pt-0.5 text-[11px] text-rose-600 italic">
-                  Tombol "Simpan Kontrak Draf" tidak dapat diklik hingga aturan di atas terpenuhi.
+                  Tombol "Simpan Kontrak Draf" tidak dapat diklik hingga syarat di atas terpenuhi.
                 </div>
               </div>
             )}
@@ -394,7 +399,7 @@ export const Contracts: React.FC = () => {
               </div>
 
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-600">
-                Tanggal Selesai Otomatis (BR-02):{' '}
+                Tanggal Selesai Otomatis:{' '}
                 <span className="font-bold text-slate-900">
                   {calculateContractEndDate(tanggalMulai, durasiBulan)}
                 </span>
@@ -403,7 +408,10 @@ export const Contracts: React.FC = () => {
 
             <div className="flex justify-end gap-2 pt-2">
               <button
-                onClick={() => setShowCreateModal(false)}
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setModalSubmitError(null);
+                }}
                 className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
               >
                 Batal
@@ -435,8 +443,14 @@ export const Contracts: React.FC = () => {
               <ShieldAlert className="w-5 h-5 text-rose-600" /> Akhiri Kontrak Lebih Awal
             </h3>
             <p className="text-xs text-slate-500">
-              Sesuai aturan BR-05: Pengakhiran lebih awal hanya oleh Pemilik, wajib disertai alasan, dan berlaku sampai akhir bulan berjalan.
+              Pengakhiran lebih awal hanya dapat dilakukan oleh Pemilik, wajib disertai alasan yang jelas, dan berlaku efektif hingga akhir bulan berjalan.
             </p>
+
+            {/* Error Alert Standar Modal */}
+            <ModalErrorAlert
+              error={terminateModalError}
+              onDismiss={() => setTerminateModalError(null)}
+            />
 
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1">
               <div>Nomor Kontrak: <span className="font-bold">{terminatingContract.nomor}</span></div>
@@ -451,7 +465,10 @@ export const Contracts: React.FC = () => {
               <textarea
                 rows={3}
                 value={terminateReason}
-                onChange={(e) => setTerminateReason(e.target.value)}
+                onChange={(e) => {
+                  setTerminateReason(e.target.value);
+                  if (terminateModalError) setTerminateModalError(null);
+                }}
                 placeholder="Contoh: Penyewa pindah tugas kerja lebih awal atas kesepakatan bersama."
                 className="w-full text-xs border border-slate-300 rounded-xl p-2.5 focus:ring-2 focus:ring-rose-500 focus:outline-none"
               />
@@ -459,7 +476,10 @@ export const Contracts: React.FC = () => {
 
             <div className="flex justify-end gap-2 pt-2">
               <button
-                onClick={() => setTerminatingContract(null)}
+                onClick={() => {
+                  setTerminatingContract(null);
+                  setTerminateModalError(null);
+                }}
                 className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
               >
                 Batal

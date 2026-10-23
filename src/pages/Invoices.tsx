@@ -3,6 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { dataStore } from '../api/data-service';
 import { Tagihan, Pembayaran } from '../types/database';
 import { formatRupiah } from '../utils/business-rules';
+import { ModalErrorAlert } from '../components/ModalErrorAlert';
+import { parseErrorMessage } from '../utils/error-handler';
 import {
   Receipt,
   PlusCircle,
@@ -27,6 +29,7 @@ export const Invoices: React.FC = () => {
   const [payMethod, setPayMethod] = useState<'tunai' | 'transfer'>('tunai');
   const [payDate, setPayDate] = useState<string>('2026-10-15'); // Tanggal acuan
   const [buktiPath, setBuktiPath] = useState<string>('bukti_transfer/tf_okt_2026.jpg');
+  const [payModalError, setPayModalError] = useState<string | null>(null);
 
   // Modal Batalkan Pembayaran (Pemilik)
   const [cancelingPayment, setCancelingPayment] = useState<any | null>(null);
@@ -48,22 +51,23 @@ export const Invoices: React.FC = () => {
       if (createdCount > 0) {
         setMessage({
           type: 'success',
-          text: `Berhasil membuat ${createdCount} tagihan baru untuk periode ${selectedPeriod} (BR-06: Bebas duplikasi).`,
+          text: `Berhasil membuat ${createdCount} tagihan baru untuk periode ${selectedPeriod} (Bebas duplikasi).`,
         });
       } else {
         setMessage({
           type: 'success',
-          text: `Semua kontrak aktif untuk periode ${selectedPeriod} sudah memiliki tagihan. Tidak ada tagihan ganda yang dibuat (BR-06).`,
+          text: `Semua kontrak aktif untuk periode ${selectedPeriod} sudah memiliki tagihan. Tidak ada tagihan ganda yang dibuat.`,
         });
       }
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
+      setMessage({ type: 'error', text: parseErrorMessage(err) });
     }
   };
 
   const handleRecordPayment = () => {
     if (!payingInvoice || !currentUser) return;
     try {
+      setPayModalError(null);
       dataStore.recordPayment({
         tagihan_id: payingInvoice.id,
         jumlah: payAmount,
@@ -79,8 +83,9 @@ export const Invoices: React.FC = () => {
         text: `Pembayaran sebesar ${formatRupiah(payAmount)} berhasil dicatat untuk tagihan ${payingInvoice.nomor}.`,
       });
       setPayingInvoice(null);
+      setPayModalError(null);
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
+      setPayModalError(parseErrorMessage(err));
     }
   };
 
@@ -183,7 +188,7 @@ export const Invoices: React.FC = () => {
                 <th className="py-3.5 px-4">Penyewa & Unit</th>
                 <th className="py-3.5 px-4">Jatuh Tempo</th>
                 <th className="py-3.5 px-4">Nominal Pokok</th>
-                <th className="py-3.5 px-4">Denda (BR-07)</th>
+                <th className="py-3.5 px-4">Denda Keterlambatan</th>
                 <th className="py-3.5 px-4">Terbayar</th>
                 <th className="py-3.5 px-4">Sisa Tagihan</th>
                 <th className="py-3.5 px-4">Status</th>
@@ -234,6 +239,7 @@ export const Invoices: React.FC = () => {
                           onClick={() => {
                             setPayingInvoice(inv);
                             setPayAmount(inv.sisa_tagihan || 0);
+                            setPayModalError(null);
                           }}
                           className="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold shadow-sm transition-colors"
                         >
@@ -268,6 +274,12 @@ export const Invoices: React.FC = () => {
               <CreditCard className="w-5 h-5 text-emerald-600" /> Catat Pembayaran Sewa
             </h3>
 
+            {/* Error Alert Standar Modal */}
+            <ModalErrorAlert
+              error={payModalError}
+              onDismiss={() => setPayModalError(null)}
+            />
+
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1.5">
               <div className="flex justify-between">
                 <span className="text-slate-500">Invoice:</span>
@@ -300,11 +312,14 @@ export const Invoices: React.FC = () => {
                   type="number"
                   step="50000"
                   value={payAmount}
-                  onChange={(e) => setPayAmount(Number(e.target.value))}
+                  onChange={(e) => {
+                    setPayAmount(Number(e.target.value));
+                    if (payModalError) setPayModalError(null);
+                  }}
                   className="w-full text-sm font-semibold border border-slate-300 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Aturan BR-08: Minimal Rp100.000 per cicilan (kecuali sisa akhir) dan tidak melebihi sisa tagihan.
+                  Minimal Rp100.000 per cicilan (kecuali untuk melunasi sisa tagihan) dan tidak boleh melebihi sisa tagihan.
                 </p>
               </div>
 
@@ -346,7 +361,10 @@ export const Invoices: React.FC = () => {
 
             <div className="flex justify-end gap-2 pt-2">
               <button
-                onClick={() => setPayingInvoice(null)}
+                onClick={() => {
+                  setPayingInvoice(null);
+                  setPayModalError(null);
+                }}
                 className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
               >
                 Batal

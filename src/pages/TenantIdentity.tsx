@@ -17,7 +17,7 @@ export const TenantIdentity: React.FC = () => {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (nik.length !== 16 || !/^\d+$/.test(nik)) {
-      setMessage({ type: 'error', text: 'NIK wajib terdiri dari tepat 16 digit angka (BR-03).' });
+      setMessage({ type: 'error', text: 'NIK wajib terdiri dari tepat 16 digit angka.' });
       return;
     }
 
@@ -44,7 +44,7 @@ export const TenantIdentity: React.FC = () => {
           <UserSquare2 className="w-6 h-6 text-emerald-600" /> Data Identitas & Foto KTP Penghuni
         </h1>
         <p className="text-sm text-slate-500">
-          Wajib dilengkapi untuk aktivasi kontrak kamar sewa (BR-03). Data disimpan aman di storage privat.
+          Wajib dilengkapi untuk aktivasi kontrak kamar sewa. Data disimpan aman di storage privat.
         </p>
       </div>
 
