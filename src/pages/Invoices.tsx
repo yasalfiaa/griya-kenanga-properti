@@ -21,6 +21,7 @@ import {
   Ban,
   FileCheck2,
   Camera,
+  Loader2,
 } from 'lucide-react';
 
 export const Invoices: React.FC = () => {
@@ -56,24 +57,34 @@ export const Invoices: React.FC = () => {
     return matchesPeriod;
   });
 
-  const handleGenerateInvoices = () => {
+  // Modal Generate Tagihan Bulanan (Pengelola/Pemilik) — pola error standar
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [generatePeriod, setGeneratePeriod] = useState<string>('2026-11');
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleGenerateInvoices = async () => {
     if (!currentUser) return;
     try {
-      const createdCount = dataStore.generateMonthlyInvoices(`${selectedPeriod}-01`, currentUser);
+      setIsGenerating(true);
+      setGenerateError(null);
+      const result = await dataStore.generateMonthlyInvoices(generatePeriod, currentUser);
       setInvoices(dataStore.getInvoices());
-      if (createdCount > 0) {
-        setMessage({
-          type: 'success',
-          text: `Berhasil membuat ${createdCount} tagihan baru untuk periode ${selectedPeriod} (Bebas duplikasi).`,
-        });
-      } else {
-        setMessage({
-          type: 'success',
-          text: `Semua kontrak aktif untuk periode ${selectedPeriod} sudah memiliki tagihan. Tidak ada tagihan ganda yang dibuat.`,
-        });
-      }
+      setMessage({
+        type: 'success',
+        text:
+          result.dibuat > 0
+            ? `Berhasil membuat ${result.dibuat} tagihan baru untuk periode ${generatePeriod}` +
+              (result.dilewati > 0 ? ` (${result.dilewati} sudah ada, dilewati — tidak ada dobel).` : '.')
+            : `Semua kontrak aktif untuk periode ${generatePeriod} sudah memiliki tagihan (${result.dilewati} dilewati). Tidak ada tagihan ganda yang dibuat.`,
+      });
+      setShowGenerateModal(false);
+      setGenerateError(null);
     } catch (err: any) {
-      setMessage({ type: 'error', text: parseErrorMessage(err) });
+      // Error tidak di-swallow: tampil di dalam modal sampai ditutup
+      setGenerateError(parseErrorMessage(err));
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -195,13 +206,16 @@ export const Invoices: React.FC = () => {
           </p>
         </div>
 
-        {/* Action Button: Batch Generate Invoice (Pengelola) */}
-        {role === 'pengelola' && (
+        {/* Action Button: Batch Generate Invoice (Pengelola/Pemilik) */}
+        {(role === 'pengelola' || role === 'pemilik') && (
           <button
-            onClick={handleGenerateInvoices}
+            onClick={() => {
+              setGenerateError(null);
+              setShowGenerateModal(true);
+            }}
             className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-sm transition-colors"
           >
-            <PlusCircle className="w-4 h-4" /> Buat Tagihan Bulanan (Sekali Klik)
+            <PlusCircle className="w-4 h-4" /> Buat Tagihan Bulanan
           </button>
         )}
       </div>
@@ -527,6 +541,60 @@ export const Invoices: React.FC = () => {
                 className="px-4 py-2 text-sm bg-rose-600 hover:bg-rose-700 disabled:opacity-60 disabled:cursor-wait text-white rounded-xl font-semibold shadow-sm"
               >
                 {isCancellingInvoice ? 'Membatalkan...' : 'Ya, Batalkan Tagihan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Generate Tagihan Bulanan (Pengelola/Pemilik) */}
+      {showGenerateModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+              <PlusCircle className="w-5 h-5 text-emerald-600" /> Buat Tagihan Bulanan
+            </h3>
+            <p className="text-xs text-slate-500">
+              Akan dibuat tagihan untuk semua kontrak berstatus aktif yang mencakup periode yang dipilih. Jatuh tempo
+              selalu tanggal 10 (BR-06), nominal mengikuti harga sewa yang terkunci di kontrak. Proses ini aman dari
+              tagihan ganda — jika tagihan periode yang sama sudah ada, otomatis dilewati.
+            </p>
+
+            {/* Error Alert Standar Modal: kegagalan tidak di-swallow */}
+            <ModalErrorAlert
+              error={generateError}
+              onDismiss={() => setGenerateError(null)}
+            />
+
+            <div>
+              <label className="text-xs font-semibold text-slate-700 block mb-1">
+                Periode Tagihan (selalu tanggal 1)
+              </label>
+              <input
+                type="month"
+                value={generatePeriod}
+                onChange={(e) => setGeneratePeriod(e.target.value)}
+                className="w-full text-sm border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => {
+                  setShowGenerateModal(false);
+                  setGenerateError(null);
+                }}
+                className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleGenerateInvoices}
+                disabled={isGenerating || !/^\d{4}-\d{2}$/.test(generatePeriod)}
+                className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-wait text-white rounded-xl font-semibold shadow-sm flex items-center gap-2"
+              >
+                {isGenerating && <Loader2 className="w-4 h-4 animate-spin" />}
+                {isGenerating ? 'Memproses...' : 'Buat Tagihan'}
               </button>
             </div>
           </div>

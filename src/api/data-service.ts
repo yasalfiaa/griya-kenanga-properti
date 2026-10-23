@@ -301,7 +301,7 @@ class DataStore {
       other => other.penyewa_id === k.penyewa_id && other.status === 'aktif' && other.id !== kontrakId
     );
     if (hasOtherActive) {
-      throw new Error('Penyewa sudah memiliki kontrak aktif lain. Satu penyewa hanya boleh memiliki 1 kontrak aktif.');
+      throw new Error('Penyewa ini sudah memiliki kontrak aktif.');
     }
 
     if (isSupabaseConfigured) {
@@ -396,21 +396,52 @@ class DataStore {
     });
   }
 
-  public generateMonthlyInvoices(periode: string, actor: Profile): number {
-    if (actor.peran !== 'pengelola') {
-      throw new Error('Hanya Pengelola yang berhak membuat tagihan bulanan.');
+  /**
+   * Generate tagihan bulanan (BR-06).
+   * Mode Supabase : fn_generate_monthly_invoices (#09) — kunci FOR UPDATE
+   *                 semua kontrak aktif → aman dijalankan dua pengguna
+   *                 bersamaan (yang kedua mengulang kunci, cek ulang, lalu
+   *                 melewati tagihan yang sudah ada, bukan dobel).
+   * Gagal DB      = throw (pesan tampil di modal).
+   * Mode demo     : logika lokal dipertahankan.
+   */
+  public async generateMonthlyInvoices(
+    periode: string,
+    actor: Profile
+  ): Promise<{ dibuat: number; dilewati: number }> {
+    if (actor.peran !== 'pengelola' && actor.peran !== 'pemilik') {
+      throw new Error('Hanya Pengelola atau Pemilik yang berhak membuat tagihan bulanan.');
     }
 
-    // Format periode: YYYY-MM-01
-    const activeContracts = this.kontrak.filter(k => k.status === 'aktif');
+    const periodeBulan = periode.slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(periodeBulan)) {
+      throw new Error('Format periode tidak valid. Gunakan format Tahun-Bulan (contoh: 2026-11).');
+    }
+
+    if (isSupabaseConfigured) {
+      // ---- Alur database transaksional, aman race condition (BR-06) ----
+      const { data: res, error } = await supabase.rpc('fn_generate_monthly_invoices', {
+        p_periode: `${periodeBulan}-01`,
+      });
+      if (error) {
+        throw new Error(error.message);
+      }
+      const row = Array.isArray(res) ? res[0] : res;
+      if (!row || typeof row.out_dibuat !== 'number') {
+        throw new Error('Respons database tidak sesuai saat membuat tagihan bulanan.');
+      }
+      return { dibuat: row.out_dibuat, dilewati: row.out_dilewati || 0 };
+    }
+
+    // ---- Fallback mode demo (tanpa Supabase tetap jalan) ----
     let createdCount = 0;
 
-    const periodeStr = periode.slice(0, 7).replace('-', ''); // 202610
-    const jatuhTempo = `${periode.slice(0, 7)}-10`; // Selalu tanggal 10 (BR-06)
+    const periodeStr = periodeBulan.replace('-', ''); // 202610
+    const jatuhTempo = `${periodeBulan}-10`; // Selalu tanggal 10 (BR-06)
 
-    for (const k of activeContracts) {
+    for (const k of this.kontrak.filter(item => item.status === 'aktif')) {
       // BR-06: Satu kontrak hanya punya satu tagihan per periode
-      const exists = this.tagihan.some(t => t.kontrak_id === k.id && t.periode.startsWith(periode.slice(0, 7)));
+      const exists = this.tagihan.some(t => t.kontrak_id === k.id && t.periode.startsWith(periodeBulan));
       if (!exists) {
         const seq = this.tagihan.length + 1;
         const nomor = `INV-${periodeStr}-${String(seq).padStart(4, '0')}`;
@@ -419,7 +450,7 @@ class DataStore {
           id: crypto.randomUUID(),
           nomor,
           kontrak_id: k.id,
-          periode: `${periode.slice(0, 7)}-01`,
+          periode: `${periodeBulan}-01`,
           jatuh_tempo: jatuhTempo,
           nominal_sewa: k.harga_sewa_bulanan,
           denda: 0,
@@ -432,8 +463,8 @@ class DataStore {
       }
     }
 
-    this.logAudit(actor, 'buat_massal:tagihan', 'tagihan', periode, null, { createdCount, periode });
-    return createdCount;
+    this.logAudit(actor, 'buat_massal:tagihan', 'tagihan', periodeBulan, null, { createdCount, periode: periodeBulan });
+    return { dibuat: createdCount, dilewati: 0 };
   }
 
   public async recordPayment(data: {

@@ -38,9 +38,14 @@ export function translateServerMessage(rawMessage: string): string | null {
 
   // --- Duplikat / unique constraint ---
   if (msg.includes('duplicate key value') || msg.includes('unique constraint')) {
+    // Sertakan nama constraint pada pesan generik agar mudah didiagnosis
+    const cons = rawMessage.match(/constraint\s+"([^"]+)"/i)?.[1];
+    if (cons && cons.toLowerCase() === 'audit_log_pkey') {
+      return 'Catatan log audit gagal disimpan: counter id tabel audit_log belum disetel ulang setelah seed data. Jalankan skrip supabase/migrations/10_fix_audit_log_sequence.sql di SQL Editor, lalu ulangi aksi ini.';
+    }
     if (msg.includes('kontrak_nomor_key')) return 'Nomor kontrak sudah terpakai. Coba simpan kembali (nomor akan dibuat ulang otomatis).';
     if (msg.includes('unik_kontrak_periode')) return 'Sudah ada tagihan untuk kontrak & periode ini (BR: satu tagihan per kontrak per periode).';
-    return 'Gagal tersimpan: data dengan nomor/kode tersebut sudah ada (tidak boleh dobel).';
+    return `Gagal tersimpan: data dengan nomor/kode tersebut sudah ada (tidak boleh dobel)${cons ? ` [referensi: ${cons}]` : ''}.`;
   }
 
   // --- Foreign key / referensi ---
@@ -81,10 +86,18 @@ export function translateServerMessage(rawMessage: string): string | null {
     return 'Fungsi proses belum tersedia di server. Pastikan skrip migration SQL sudah dijalankan di SQL Editor.';
   }
 
+  // --- Aturan bisnis: satu penyewa satu kontrak aktif ---
+  if (
+    msg.includes('kontrak aktif lain') ||
+    msg.includes('hanya boleh 1 kontrak aktif') ||
+    msg.includes('sudah memiliki kontrak aktif')
+  ) {
+    return 'Penyewa ini sudah memiliki kontrak aktif.';
+  }
+
   // --- Overlap/kontrak ganda: pesan dari fn sudah Indonesia, biarkan lewat ---
   if (
     msg.includes('beririsan') ||
-    msg.includes('kontrak aktif lain') ||
     msg.includes('hanya unit berstatus') ||
     msg.includes('hanya kontrak draf') ||
     msg.includes('belum diverifikasi') ||

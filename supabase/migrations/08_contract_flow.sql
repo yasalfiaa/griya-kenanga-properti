@@ -148,7 +148,7 @@ BEGIN
         SELECT 1 FROM public.kontrak
         WHERE penyewa_id = v_k.penyewa_id AND status = 'aktif' AND id <> p_kontrak_id
     ) THEN
-        RAISE EXCEPTION 'Penyewa sudah memiliki kontrak aktif lain. Satu penyewa hanya boleh 1 kontrak aktif.';
+        RAISE EXCEPTION 'Penyewa ini sudah memiliki kontrak aktif.';
     END IF;
 
     UPDATE public.kontrak SET status = 'aktif' WHERE id = p_kontrak_id;
@@ -230,6 +230,18 @@ CREATE POLICY "Pengelola dapat mengelola profil penyewa"
     ON public.profiles FOR UPDATE
     TO authenticated
     USING (public.get_auth_role() = 'pengelola');
+
+-- -------------------------------------------------------------------
+-- 5b. GRANT EXECUTE — pastikan API bisa memanggil fungsi-fungsi ini
+-- -------------------------------------------------------------------
+GRANT EXECUTE ON FUNCTION public.fn_create_contract(UUID, UUID, DATE, SMALLINT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.fn_activate_contract(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.fn_terminate_contract(UUID, TEXT) TO authenticated;
+
+-- -------------------------------------------------------------------
+-- 6. SEGARKAN CACHE SKEMA API (wajib agar PostgREST langsung melihat fungsi)
+-- -------------------------------------------------------------------
+NOTIFY pgrst, 'reload schema';
 
 -- -------------------------------------------------------------------
 -- 6. VERIFIKASI (jalankan manual, opsional)
