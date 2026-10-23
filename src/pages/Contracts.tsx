@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { dataStore } from '../api/data-service';
 import { Kontrak, Unit, Profile } from '../types/database';
-import { formatRupiah, calculateContractEndDate } from '../utils/business-rules';
+import { formatRupiah, calculateContractEndDate, isContractOverlapping } from '../utils/business-rules';
 import {
   FileText,
   Plus,
@@ -31,6 +31,55 @@ export const Contracts: React.FC = () => {
   const [tanggalMulai, setTanggalMulai] = useState('2026-11-01'); // Mulai tanggal 1
   const [durasiBulan, setDurasiBulan] = useState<1 | 3 | 6 | 12>(6);
 
+  // Validasi real-time untuk modal buat kontrak (BR-01, BR-02, BR-04)
+  const [modalSubmitError, setModalSubmitError] = useState<string | null>(null);
+
+  const modalValidationErrors = useMemo((): string[] => {
+    const errors: string[] = [];
+
+    // Validasi Aturan BR-04: Hanya unit berstatus 'tersedia'
+    if (selectedUnitId) {
+      const unit = units.find(u => u.id === selectedUnitId);
+      if (unit && unit.status !== 'tersedia') {
+        errors.push(
+          `Aturan BR-04: Unit ${unit.kode} berstatus "${unit.status}". Kontrak sewa baru hanya dapat dibuat untuk unit yang berstatus "tersedia".`
+        );
+      }
+    }
+
+    // Validasi Aturan BR-02: Tanggal mulai sewa harus selalu tanggal 1 awal bulan
+    if (tanggalMulai) {
+      const parts = tanggalMulai.split('-');
+      const tanggalHari = parseInt(parts[2], 10);
+      if (tanggalHari !== 1) {
+        errors.push(
+          `Aturan BR-02: Tanggal mulai sewa harus selalu tanggal 1 di awal bulan (contoh: ${parts[0]}-${parts[1]}-01).`
+        );
+      }
+    }
+
+    // Validasi Aturan BR-01: Tidak boleh ada periode kontrak tumpang tindih (kontrak tunggal)
+    if (selectedUnitId && tanggalMulai) {
+      const parts = tanggalMulai.split('-');
+      const tanggalHari = parseInt(parts[2], 10);
+      if (tanggalHari === 1) {
+        const tanggalSelesai = calculateContractEndDate(tanggalMulai, durasiBulan);
+        const kontrakUnit = contracts.filter(k => k.unit_id === selectedUnitId);
+        if (isContractOverlapping(kontrakUnit, tanggalMulai, tanggalSelesai)) {
+          const unit = units.find(u => u.id === selectedUnitId);
+          errors.push(
+            `Aturan BR-01: Unit ${unit?.kode || selectedUnitId} sudah memiliki kontrak aktif/draf pada periode ${tanggalMulai} s/d ${tanggalSelesai}. Periode sewa tidak boleh beririsan.`
+          );
+        }
+      }
+    }
+
+    return errors;
+  }, [selectedUnitId, tanggalMulai, durasiBulan, units, contracts]);
+
+  const isFormIncomplete = !selectedUnitId || !selectedPenyewaId;
+  const isSaveDisabled = isFormIncomplete || modalValidationErrors.length > 0;
+
   // Modal Akhiri Kontrak (Pemilik)
   const [terminatingContract, setTerminatingContract] = useState<Kontrak | null>(null);
   const [terminateReason, setTerminateReason] = useState('');
@@ -40,12 +89,12 @@ export const Contracts: React.FC = () => {
   );
 
   const handleCreateContract = () => {
-    if (!currentUser || !selectedUnitId || !selectedPenyewaId) {
-      setMessage({ type: 'error', text: 'Mohon lengkapi semua kolom formulir kontrak.' });
+    if (!currentUser || isSaveDisabled) {
       return;
     }
 
     try {
+      setModalSubmitError(null);
       const newContract = dataStore.createContract({
         unit_id: selectedUnitId,
         penyewa_id: selectedPenyewaId,
@@ -54,14 +103,18 @@ export const Contracts: React.FC = () => {
         actor: currentUser,
       });
 
+      const unitKode = units.find(u => u.id === selectedUnitId)?.kode || selectedUnitId;
       setContracts(dataStore.getContracts());
       setMessage({
         type: 'success',
-        text: `Kontrak draf baru ${newContract.nomor} berhasil dibuat untuk unit ${newContract.unit_id}.`,
+        text: `Kontrak draf baru ${newContract.nomor} berhasil dibuat untuk unit ${unitKode}.`,
       });
       setShowCreateModal(false);
+      setSelectedUnitId('');
+      setSelectedPenyewaId('');
+      setModalSubmitError(null);
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
+      setModalSubmitError(err.message || 'Terjadi kesalahan saat membuat kontrak.');
     }
   };
 
@@ -252,12 +305,33 @@ export const Contracts: React.FC = () => {
       {showCreateModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4">
-            <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
-              <FileText className="w-5 h-5 text-emerald-600" /> Buat Kontrak Sewa Baru
-            </h3>
-            <p className="text-xs text-slate-500">
-              Sesuai aturan BR-01 s/d BR-04: Hanya unit tersedia, tanggal mulai selalu tanggal 1, dan tidak boleh ada periode beririsan.
-            </p>
+            <div>
+              <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+                <FileText className="w-5 h-5 text-emerald-600" /> Buat Kontrak Sewa Baru
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Sesuai aturan BR-01 s/d BR-04: Hanya unit tersedia, tanggal mulai selalu tanggal 1, dan tidak boleh ada periode beririsan.
+              </p>
+            </div>
+
+            {/* Keterangan ramah pengguna berwarna merah saat aturan bisnis dilanggar */}
+            {(modalValidationErrors.length > 0 || modalSubmitError) && (
+              <div className="rounded-xl border border-rose-200 bg-rose-50/90 p-3.5 space-y-2">
+                <div className="flex items-center gap-2 text-rose-800 text-xs font-bold">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>Aturan bisnis yang belum terpenuhi:</span>
+                </div>
+                <ul className="space-y-1.5 pl-5 list-disc list-outside text-xs text-rose-700 font-medium leading-relaxed">
+                  {modalValidationErrors.map((err, i) => (
+                    <li key={i}>{err}</li>
+                  ))}
+                  {modalSubmitError && <li>{modalSubmitError}</li>}
+                </ul>
+                <div className="pl-5 pt-0.5 text-[11px] text-rose-600 italic">
+                  Tombol "Simpan Kontrak Draf" tidak dapat diklik hingga aturan di atas terpenuhi.
+                </div>
+              </div>
+            )}
 
             <div className="space-y-3">
               <div>
@@ -336,7 +410,15 @@ export const Contracts: React.FC = () => {
               </button>
               <button
                 onClick={handleCreateContract}
-                className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold shadow-sm"
+                disabled={isSaveDisabled}
+                title={
+                  modalValidationErrors.length > 0
+                    ? modalValidationErrors[0]
+                    : isFormIncomplete
+                    ? 'Pilih unit dan calon penyewa terlebih dahulu untuk menyimpan draf kontrak'
+                    : 'Simpan kontrak baru sebagai draf'
+                }
+                className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-semibold shadow-sm transition-colors"
               >
                 Simpan Kontrak Draf
               </button>
