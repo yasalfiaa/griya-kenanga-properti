@@ -1,5 +1,5 @@
 export type RoleType = 'pemilik' | 'pengelola' | 'penyewa';
-export type UnitStatus = 'tersedia' | 'perbaikan' | 'nonaktif';
+export type UnitStatus = 'tersedia' | 'dikontrak' | 'perbaikan' | 'nonaktif';
 export type KontrakStatus = 'draf' | 'aktif' | 'selesai' | 'diakhiri' | 'dibatalkan';
 export type TagihanStatus = 'belum_bayar' | 'sebagian' | 'lunas' | 'dibatalkan';
 export type PembayaranMetode = 'tunai' | 'transfer' | 'mayar';

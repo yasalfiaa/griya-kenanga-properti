@@ -3,6 +3,14 @@ import { useAuth } from '../context/AuthContext';
 import { dataStore } from '../api/data-service';
 import { LaporanKerusakan } from '../types/database';
 import { formatRupiah } from '../utils/business-rules';
+import {
+  ACCEPTED_IMAGE_ATTR,
+  MAX_IMAGE_SIZE_MB,
+  validateImageFile,
+  uploadImage,
+  isHttpUrl,
+  STORAGE_BUCKETS,
+} from '../api/storage';
 import { ModalErrorAlert } from '../components/ModalErrorAlert';
 import { parseErrorMessage } from '../utils/error-handler';
 import {
@@ -27,9 +35,10 @@ export const DamageReports: React.FC = () => {
   const [judul, setJudul] = useState('');
   const [kategori, setKategori] = useState('air');
   const [deskripsi, setDeskripsi] = useState('');
-  const [fotoPaths, setFotoPaths] = useState<string[]>([
-    'kerusakan/demo/foto-1.jpg',
-  ]);
+  const [fotoFiles, setFotoFiles] = useState<File[]>([]);
+  const [fotoPreviews, setFotoPreviews] = useState<string[]>([]);
+  const [fotoError, setFotoError] = useState<string | null>(null);
+  const [isSavingReport, setIsSavingReport] = useState(false);
   const [createModalError, setCreateModalError] = useState<string | null>(null);
 
   // Modal Proses Laporan (Pengelola)
@@ -44,9 +53,53 @@ export const DamageReports: React.FC = () => {
     return true;
   });
 
-  const handleCreateReport = () => {
+  const handleFilesSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files || []);
+    setFotoError(null);
+    if (picked.length === 0) return;
+
+    // Batas 3 foto (BR PRD: 1 s/d 3 foto per laporan)
+    const room = 3 - fotoFiles.length;
+    if (room <= 0) {
+      setFotoError('Maksimal 3 foto per laporan kerusakan.');
+      e.target.value = '';
+      return;
+    }
+
+    const newFiles: File[] = [];
+    const newPreviews: string[] = [];
+    const errors: string[] = [];
+    for (const file of picked.slice(0, room)) {
+      const err = validateImageFile(file);
+      if (err) {
+        errors.push(`${file.name}: ${err}`);
+        continue;
+      }
+      newFiles.push(file);
+      newPreviews.push(URL.createObjectURL(file));
+    }
+    if (picked.length > room) {
+      errors.push(`Maksimal 3 foto per laporan kerusakan (hanya ${room} foto pertama ditambahkan).`);
+    }
+    if (errors.length > 0) setFotoError(errors.join(' '));
+    e.target.value = '';
+    if (newFiles.length > 0) {
+      setFotoFiles(prev => [...prev, ...newFiles]);
+      setFotoPreviews(prev => [...prev, ...newPreviews]);
+    }
+  };
+
+  const resetFotoInputs = () => {
+    fotoPreviews.forEach(p => URL.revokeObjectURL(p));
+    setFotoFiles([]);
+    setFotoPreviews([]);
+    setFotoError(null);
+  };
+
+  const handleCreateReport = async () => {
     if (!currentUser) return;
     try {
+      setIsSavingReport(true);
       setCreateModalError(null);
       // Dapatkan unit id dari kontrak aktif penyewa
       const activeContract = dataStore.getContracts().find(
@@ -58,13 +111,29 @@ export const DamageReports: React.FC = () => {
       if (!judul.trim()) {
         throw new Error('Judul kerusakan wajib diisi.');
       }
+      if (fotoFiles.length < 1) {
+        throw new Error('Laporan kerusakan wajib melampirkan minimal 1 foto.');
+      }
 
-      const newReport = dataStore.createDamageReport({
+      // Unggah 1-3 foto ke bucket publik laporan_kerusakan
+      const uploaded: string[] = [];
+      for (let i = 0; i < fotoFiles.length; i++) {
+        const doc = await uploadImage({
+          bucket: STORAGE_BUCKETS.laporanKerusakan,
+          userId: currentUser.id,
+          kind: 'kerusakan',
+          file: fotoFiles[i],
+          index: i + 1,
+        });
+        uploaded.push(doc.url); // URL publik permanen
+      }
+
+      const newReport = await dataStore.createDamageReport({
         unit_id: activeContract.unit_id,
         kategori,
         judul,
         deskripsi,
-        foto_paths: fotoPaths,
+        foto_paths: uploaded,
         actor: currentUser,
       });
 
@@ -76,9 +145,12 @@ export const DamageReports: React.FC = () => {
       setShowCreateModal(false);
       setJudul('');
       setDeskripsi('');
+      resetFotoInputs();
       setCreateModalError(null);
     } catch (err: any) {
       setCreateModalError(parseErrorMessage(err));
+    } finally {
+      setIsSavingReport(false);
     }
   };
 
@@ -224,6 +296,19 @@ export const DamageReports: React.FC = () => {
                   <span>Foto Terlampir:</span>
                   <span className="text-emerald-700 font-medium">{r.foto_paths?.length || 1} Foto (JPG/PNG)</span>
                 </div>
+                {isHttpUrl(r.foto_paths?.[0]) && (
+                  <div className="grid grid-cols-3 gap-1.5 pt-1">
+                    {r.foto_paths?.filter(isHttpUrl).slice(0, 3).map((url, i) => (
+                      <a key={url} href={url} target="_blank" rel="noreferrer" title="Lihat foto penuh">
+                        <img
+                          src={url}
+                          alt={`Foto kerusakan ${i + 1}`}
+                          className="w-full h-16 object-cover rounded-lg border border-slate-200 hover:opacity-80 transition-opacity"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                )}
                 {r.estimasi_biaya && (
                   <div className="flex justify-between">
                     <span>Estimasi Biaya:</span>
@@ -338,12 +423,49 @@ export const DamageReports: React.FC = () => {
 
               <div>
                 <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Foto Bukti Kerusakan (1 - 3 Foto)
+                  Foto Bukti Kerusakan (1 - 3 Foto, JPG/PNG/WEBP, Maks {MAX_IMAGE_SIZE_MB}MB per foto)
                 </label>
-                <div className="flex items-center gap-2 border border-dashed border-slate-300 p-2.5 rounded-xl bg-slate-50 text-xs text-slate-600">
-                  <Camera className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                  <span className="truncate">{fotoPaths.join(', ')}</span>
-                </div>
+                <input
+                  type="file"
+                  multiple
+                  accept={ACCEPTED_IMAGE_ATTR}
+                  onChange={handleFilesSelect}
+                  className="w-full text-xs text-slate-600 border border-slate-300 rounded-xl px-3 py-2 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-emerald-600 file:text-white file:text-xs file:font-semibold file:cursor-pointer hover:file:bg-emerald-700 cursor-pointer bg-white"
+                  aria-label="Pilih foto bukti kerusakan"
+                />
+                {fotoError && (
+                  <p className="mt-1.5 text-xs font-semibold text-rose-600" role="alert">
+                    {fotoError}
+                  </p>
+                )}
+                {fotoPreviews.length > 0 && (
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    {fotoPreviews.map((url, idx) => (
+                      <div key={url} className="relative group">
+                        <img
+                          src={url}
+                          alt={`Pratinjau foto ${idx + 1}`}
+                          className="w-full h-20 object-cover rounded-lg border border-slate-200"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            URL.revokeObjectURL(url);
+                            setFotoFiles(prev => prev.filter((_, i) => i !== idx));
+                            setFotoPreviews(prev => prev.filter((_, i) => i !== idx));
+                          }}
+                          title="Hapus foto ini"
+                          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-slate-900/70 text-white text-[10px] flex items-center justify-center hover:bg-rose-600 transition-colors"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="mt-1 text-[11px] text-slate-400">
+                  {fotoFiles.length} dari 3 foto dipilih
+                </p>
               </div>
             </div>
 
@@ -351,6 +473,7 @@ export const DamageReports: React.FC = () => {
               <button
                 onClick={() => {
                   setShowCreateModal(false);
+                  resetFotoInputs();
                   setCreateModalError(null);
                 }}
                 className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
@@ -359,9 +482,10 @@ export const DamageReports: React.FC = () => {
               </button>
               <button
                 onClick={handleCreateReport}
-                className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold shadow-sm"
+                disabled={isSavingReport}
+                className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-wait text-white rounded-xl font-semibold shadow-sm"
               >
-                Kirim Laporan
+                {isSavingReport ? 'Mengunggah foto...' : 'Kirim Laporan'}
               </button>
             </div>
           </div>

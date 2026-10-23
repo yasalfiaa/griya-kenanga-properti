@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { dataStore } from '../api/data-service';
-import { Unit } from '../types/database';
+import { Unit, UnitStatus } from '../types/database';
 import { formatRupiah } from '../utils/business-rules';
 import { ModalErrorAlert } from '../components/ModalErrorAlert';
 import { parseErrorMessage } from '../utils/error-handler';
@@ -20,7 +20,7 @@ export const Units: React.FC = () => {
 
   // Modal Ubah Status (Pengelola)
   const [editingStatusUnit, setEditingStatusUnit] = useState<Unit | null>(null);
-  const [newStatus, setNewStatus] = useState<'tersedia' | 'perbaikan' | 'nonaktif'>('tersedia');
+  const [newStatus, setNewStatus] = useState<UnitStatus>('tersedia');
   const [statusModalError, setStatusModalError] = useState<string | null>(null);
 
   const filteredUnits = units.filter(u =>
@@ -59,6 +59,8 @@ export const Units: React.FC = () => {
     switch (status) {
       case 'tersedia':
         return <span className="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-1 rounded-full">Tersedia</span>;
+      case 'dikontrak':
+        return <span className="bg-indigo-100 text-indigo-800 text-xs font-semibold px-2.5 py-1 rounded-full">Dikontrak</span>;
       case 'perbaikan':
         return <span className="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-1 rounded-full">Perbaikan</span>;
       case 'nonaktif':

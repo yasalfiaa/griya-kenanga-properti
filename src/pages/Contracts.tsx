@@ -13,12 +13,13 @@ import {
   XCircle,
   Clock,
   ShieldAlert,
+  Loader2,
 } from 'lucide-react';
 
 export const Contracts: React.FC = () => {
   const { currentUser, role } = useAuth();
   const [contracts, setContracts] = useState<Kontrak[]>(() => dataStore.getContracts());
-  const [units] = useState<Unit[]>(() => dataStore.getUnits());
+  const [units, setUnits] = useState<Unit[]>(() => dataStore.getUnits());
   const [tenants] = useState<Profile[]>(() =>
     dataStore.getTenants().map(t => t.profile)
   );
@@ -38,6 +39,14 @@ export const Contracts: React.FC = () => {
 
   const modalValidationErrors = useMemo((): string[] => {
     const errors: string[] = [];
+
+    // Validasi: Unit & calon penyewa wajib dipilih
+    if (!selectedUnitId) {
+      errors.push('Pilih unit yang masih berstatus "tersedia".');
+    }
+    if (!selectedPenyewaId) {
+      errors.push('Pilih calon penyewa dari daftar.'); 
+    }
 
     // Validasi: Hanya unit berstatus 'tersedia'
     if (selectedUnitId) {
@@ -82,23 +91,29 @@ export const Contracts: React.FC = () => {
   const isFormIncomplete = !selectedUnitId || !selectedPenyewaId;
   const isSaveDisabled = isFormIncomplete || modalValidationErrors.length > 0;
 
+  // Status aksi transaksional (tombol memakai spinner saat RPC berjalan)
+  const [isSavingContract, setIsSavingContract] = useState(false);
+  const [activatingId, setActivatingId] = useState<string | null>(null);
+
   // Modal Akhiri Kontrak (Pemilik)
   const [terminatingContract, setTerminatingContract] = useState<Kontrak | null>(null);
   const [terminateReason, setTerminateReason] = useState('');
   const [terminateModalError, setTerminateModalError] = useState<string | null>(null);
+  const [isTerminating, setIsTerminating] = useState(false);
 
   const filteredContracts = contracts.filter(c =>
     filterStatus === 'all' ? true : c.status === filterStatus
   );
 
-  const handleCreateContract = () => {
+  const handleCreateContract = async () => {
     if (!currentUser || isSaveDisabled) {
       return;
     }
 
     try {
+      setIsSavingContract(true);
       setModalSubmitError(null);
-      const newContract = dataStore.createContract({
+      const newContract = await dataStore.createContract({
         unit_id: selectedUnitId,
         penyewa_id: selectedPenyewaId,
         tanggal_mulai: tanggalMulai,
@@ -108,6 +123,8 @@ export const Contracts: React.FC = () => {
 
       const unitKode = units.find(u => u.id === selectedUnitId)?.kode || selectedUnitId;
       setContracts(dataStore.getContracts());
+      // Rapikan juga daftar unit (dropdown) bila statusnya berubah di DB
+      setUnits(dataStore.getUnits());
       setMessage({
         type: 'success',
         text: `Kontrak draf baru ${newContract.nomor} berhasil dibuat untuk unit ${unitKode}.`,
@@ -118,29 +135,37 @@ export const Contracts: React.FC = () => {
       setModalSubmitError(null);
     } catch (err: any) {
       setModalSubmitError(parseErrorMessage(err));
+    } finally {
+      setIsSavingContract(false);
     }
   };
 
-  const handleActivateContract = (k: Kontrak) => {
+  const handleActivateContract = async (k: Kontrak) => {
     if (!currentUser) return;
     try {
-      dataStore.activateContract(k.id, currentUser);
+      setActivatingId(k.id);
+      await dataStore.activateContract(k.id, currentUser);
       setContracts(dataStore.getContracts());
+      setUnits(dataStore.getUnits());
       setMessage({
         type: 'success',
-        text: `Kontrak ${k.nomor} berhasil diaktifkan. Unit sekarang resmi terisi!`,
+        text: `Kontrak ${k.nomor} berhasil diaktifkan! Unit sekarang berstatus Dikontrak dan penyewa resmi Aktif.`,
       });
     } catch (err: any) {
       setMessage({ type: 'error', text: parseErrorMessage(err) });
+    } finally {
+      setActivatingId(null);
     }
   };
 
-  const handleTerminateContract = () => {
+  const handleTerminateContract = async () => {
     if (!terminatingContract || !currentUser) return;
     try {
+      setIsTerminating(true);
       setTerminateModalError(null);
-      dataStore.terminateContractEarly(terminatingContract.id, terminateReason, currentUser);
+      await dataStore.terminateContractEarly(terminatingContract.id, terminateReason, currentUser);
       setContracts(dataStore.getContracts());
+      setUnits(dataStore.getUnits());
       setMessage({
         type: 'success',
         text: `Kontrak ${terminatingContract.nomor} berhasil diakhiri lebih awal oleh Pemilik (efektif akhir bulan).`,
@@ -150,6 +175,8 @@ export const Contracts: React.FC = () => {
       setTerminateModalError(null);
     } catch (err: any) {
       setTerminateModalError(parseErrorMessage(err));
+    } finally {
+      setIsTerminating(false);
     }
   };
 
@@ -183,7 +210,10 @@ export const Contracts: React.FC = () => {
 
         {role === 'pengelola' && (
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => {
+              setModalSubmitError(null);
+              setShowCreateModal(true);
+            }}
             className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-sm transition-colors"
           >
             <Plus className="w-4 h-4" /> Buat Kontrak Baru
@@ -279,9 +309,11 @@ export const Contracts: React.FC = () => {
                       {role === 'pengelola' && k.status === 'draf' && (
                         <button
                           onClick={() => handleActivateContract(k)}
-                          className="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold shadow-sm transition-colors"
+                          disabled={activatingId === k.id}
+                          className="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-wait text-white rounded-lg font-semibold shadow-sm transition-colors flex items-center gap-1"
                         >
-                          Aktivasi
+                          {activatingId === k.id && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                          {activatingId === k.id ? 'Mengaktifkan...' : 'Aktivasi'}
                         </button>
                       )}
 
@@ -291,6 +323,7 @@ export const Contracts: React.FC = () => {
                           onClick={() => {
                             setTerminatingContract(k);
                             setTerminateReason('');
+                            setTerminateModalError(null);
                           }}
                           className="px-3 py-1.5 text-xs bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg font-semibold border border-rose-200 transition-colors"
                         >
@@ -319,8 +352,14 @@ export const Contracts: React.FC = () => {
               </p>
             </div>
 
-            {/* Keterangan ramah pengguna berwarna merah saat aturan belum terpenuhi */}
-            {(modalValidationErrors.length > 0 || modalSubmitError) && (
+            {/* Gagal dari server/DB (BR sudah terpenuhi tapi ditolak sistem) -> alert standar */}
+            <ModalErrorAlert
+              error={modalSubmitError}
+              onDismiss={() => setModalSubmitError(null)}
+            />
+
+            {/* Keterangan ramah pengguna berwarna merah saat aturan bisnis belum terpenuhi */}
+            {modalValidationErrors.length > 0 && (
               <div className="rounded-xl border border-rose-200 bg-rose-50/90 p-3.5 space-y-2">
                 <div className="flex items-center gap-2 text-rose-800 text-xs font-bold">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
@@ -330,7 +369,6 @@ export const Contracts: React.FC = () => {
                   {modalValidationErrors.map((err, i) => (
                     <li key={i}>{err}</li>
                   ))}
-                  {modalSubmitError && <li>{modalSubmitError}</li>}
                 </ul>
                 <div className="pl-5 pt-0.5 text-[11px] text-rose-600 italic">
                   Tombol "Simpan Kontrak Draf" tidak dapat diklik hingga syarat di atas terpenuhi.
@@ -348,7 +386,7 @@ export const Contracts: React.FC = () => {
                 >
                   <option value="">-- Pilih Unit --</option>
                   {units.map((u) => (
-                    <option key={u.id} value={u.id}>
+                    <option key={u.id} value={u.id} disabled={u.status !== 'tersedia'}>
                       {u.kode} (Lantai {u.lantai} - {u.tipe.toUpperCase()}) - {formatRupiah(u.harga_sewa_bulanan)}/bln [{u.status}]
                     </option>
                   ))}
@@ -418,7 +456,7 @@ export const Contracts: React.FC = () => {
               </button>
               <button
                 onClick={handleCreateContract}
-                disabled={isSaveDisabled}
+                disabled={isSaveDisabled || isSavingContract}
                 title={
                   modalValidationErrors.length > 0
                     ? modalValidationErrors[0]
@@ -426,9 +464,10 @@ export const Contracts: React.FC = () => {
                     ? 'Pilih unit dan calon penyewa terlebih dahulu untuk menyimpan draf kontrak'
                     : 'Simpan kontrak baru sebagai draf'
                 }
-                className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-semibold shadow-sm transition-colors"
+                className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-semibold shadow-sm transition-colors flex items-center gap-2"
               >
-                Simpan Kontrak Draf
+                {isSavingContract && <Loader2 className="w-4 h-4 animate-spin" />}
+                {isSavingContract ? 'Menyimpan...' : 'Simpan Kontrak Draf'}
               </button>
             </div>
           </div>
@@ -486,9 +525,11 @@ export const Contracts: React.FC = () => {
               </button>
               <button
                 onClick={handleTerminateContract}
-                className="px-4 py-2 text-sm bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold shadow-sm"
+                disabled={isTerminating}
+                className="px-4 py-2 text-sm bg-rose-600 hover:bg-rose-700 disabled:opacity-60 disabled:cursor-wait text-white rounded-xl font-semibold shadow-sm flex items-center gap-2"
               >
-                Konfirmasi Akhiri Kontrak
+                {isTerminating && <Loader2 className="w-4 h-4 animate-spin" />}
+                {isTerminating ? 'Mengakhiri...' : 'Konfirmasi Akhiri Kontrak'}
               </button>
             </div>
           </div>

@@ -1,11 +1,13 @@
 import {
   Unit,
+  UnitStatus,
   Kontrak,
   Tagihan,
   Pembayaran,
   LaporanKerusakan,
   Profile,
   IdentitasPenyewa,
+  VerifikasiStatus,
   AuditLog,
 } from '../types/database';
 import {
@@ -91,7 +93,7 @@ class DataStore {
     return [...this.units];
   }
 
-  public updateUnitStatus(id: string, newStatus: 'tersedia' | 'perbaikan' | 'nonaktif', actor: Profile): void {
+  public updateUnitStatus(id: string, newStatus: UnitStatus, actor: Profile): void {
     const unit = this.units.find(u => u.id === id);
     if (!unit) throw new Error('Unit tidak ditemukan');
 
@@ -134,7 +136,7 @@ class DataStore {
       }));
   }
 
-  public verifyTenantIdentity(penyewaId: string, status: 'terverifikasi' | 'ditolak', notes: string, actor: Profile): void {
+  public async verifyTenantIdentity(penyewaId: string, status: 'terverifikasi' | 'ditolak', notes: string, actor: Profile): Promise<void> {
     if (actor.peran !== 'pengelola') {
       throw new Error('Hanya Pengelola yang berhak memverifikasi identitas penyewa');
     }
@@ -143,11 +145,33 @@ class DataStore {
       throw new Error('Data identitas penyewa belum diisi');
     }
 
+    // Validasi: Penolakan identitas wajib disertai alasan (tidak boleh kosong)
+    const trimmedNotes = notes.trim();
+    if (status === 'ditolak' && trimmedNotes.length === 0) {
+      throw new Error('Alasan penolakan wajib diisi.');
+    }
+
     const oldStatus = ident.status_verifikasi;
     ident.status_verifikasi = status;
     ident.diverifikasi_oleh = actor.id;
     ident.diverifikasi_pada = new Date().toISOString();
-    ident.catatan_verifikasi = notes;
+    ident.catatan_verifikasi = trimmedNotes;
+
+    // Sinkronisasi ke Supabase (didegradasi ke lokal bila gagal)
+    if (isSupabaseConfigured) {
+      const { error } = await supabase
+        .from('identitas_penyewa')
+        .update({
+          status_verifikasi: status,
+          diverifikasi_oleh: actor.id,
+          diverifikasi_pada: ident.diverifikasi_pada,
+          catatan_verifikasi: trimmedNotes,
+        })
+        .eq('penyewa_id', penyewaId);
+      if (error) {
+        console.warn('Verifikasi tersimpan lokal, namun gagal sinkron ke Supabase:', error.message);
+      }
+    }
 
     this.logAudit(actor, `verifikasi_identitas:${status}`, 'identitas_penyewa', penyewaId, { status: oldStatus }, { status, notes });
   }
@@ -161,13 +185,20 @@ class DataStore {
     }));
   }
 
-  public createContract(data: {
+  /**
+   * Buat kontrak draf baru.
+   * Mode Supabase : lewat fn_create_contract (#08) — satu transaksi aman,
+   *                 unit dikunci FOR UPDATE, nomor dari generate_nomor_urut.
+   * Gagal DB      = throw (pesan tampil di modal, tidak tersimpan).
+   * Mode demo     : logika lokal lama dipertahankan.
+   */
+  public async createContract(data: {
     unit_id: string;
     penyewa_id: string;
     tanggal_mulai: string;
     durasi_bulan: 1 | 3 | 6 | 12;
     actor: Profile;
-  }): Kontrak {
+  }): Promise<Kontrak> {
     const unit = this.units.find(u => u.id === data.unit_id);
     if (!unit) throw new Error('Unit tidak ditemukan');
 
@@ -176,6 +207,44 @@ class DataStore {
       throw new Error(`Unit berstatus ${unit.status}, hanya unit berstatus 'tersedia' yang dapat dikontrakkan.`);
     }
 
+    if (isSupabaseConfigured) {
+      // ---- Alur database transaksional (BR-01, BR-02, BR-04) ----
+      const { data: res, error } = await supabase.rpc('fn_create_contract', {
+        p_unit_id: data.unit_id,
+        p_penyewa_id: data.penyewa_id,
+        p_tanggal_mulai: data.tanggal_mulai,
+        p_durasi_bulan: data.durasi_bulan,
+      });
+      if (error) {
+        throw new Error(error.message);
+      }
+      const row = Array.isArray(res) ? res[0] : res;
+      if (!row?.out_id || !row?.out_nomor) {
+        throw new Error('Respons database tidak sesuai saat membuat kontrak.');
+      }
+
+      const tanggal_selesai = calculateContractEndDate(data.tanggal_mulai, data.durasi_bulan);
+      const newContract: Kontrak = {
+        id: row.out_id,
+        nomor: row.out_nomor,
+        unit_id: data.unit_id,
+        penyewa_id: data.penyewa_id,
+        tanggal_mulai: data.tanggal_mulai,
+        durasi_bulan: data.durasi_bulan,
+        tanggal_selesai,
+        harga_sewa_bulanan: unit.harga_sewa_bulanan,
+        status: 'draf',
+        dibuat_oleh: data.actor.id,
+        dibuat_pada: new Date().toISOString(),
+      };
+
+      // Setelah tersimpan di DB, muat ulang cache agar sinkron penuh (unit/join)
+      await this.loadFromSupabase();
+      const created = this.kontrak.find(k => k.id === row.out_id);
+      return created || newContract;
+    }
+
+    // ---- Fallback mode demo (tanpa Supabase tetap jalan) ----
     // Tanggal selesai dihitung otomatis
     const tanggal_selesai = calculateContractEndDate(data.tanggal_mulai, data.durasi_bulan);
 
@@ -208,7 +277,12 @@ class DataStore {
     return newContract;
   }
 
-  public activateContract(kontrakId: string, actor: Profile): void {
+  /**
+   * Aktivasi kontrak draf (mode Supabase: fn_activate_contract — atomik:
+   * kontrak aktif + unit dikontrak + penyewa aktif). Gagal dilempar agar
+   * pesan error tampil di UI.
+   */
+  public async activateContract(kontrakId: string, actor: Profile): Promise<void> {
     if (actor.peran !== 'pengelola') {
       throw new Error('Hanya Pengelola yang berhak mengaktifkan kontrak');
     }
@@ -230,11 +304,27 @@ class DataStore {
       throw new Error('Penyewa sudah memiliki kontrak aktif lain. Satu penyewa hanya boleh memiliki 1 kontrak aktif.');
     }
 
+    if (isSupabaseConfigured) {
+      // ---- Alur database atomik: kontrak + unit + profil dalam 1 transaksi ----
+      const { error } = await supabase.rpc('fn_activate_contract', {
+        p_kontrak_id: kontrakId,
+      });
+      if (error) {
+        throw new Error(error.message);
+      }
+    }
+
+    // Perbaiki cache lokal agar UI langsung tercermin (unit & penyewa ikut)
     k.status = 'aktif';
+    const unit = this.units.find(u => u.id === k.unit_id);
+    if (unit && unit.status === 'tersedia') unit.status = 'dikontrak';
+    const penyewa = this.profiles.find(p => p.id === k.penyewa_id);
+    if (penyewa) penyewa.aktif = true;
+
     this.logAudit(actor, 'aktivasi:kontrak', 'kontrak', kontrakId, { status: 'draf' }, { status: 'aktif' });
   }
 
-  public terminateContractEarly(kontrakId: string, alasan: string, actor: Profile): void {
+  public async terminateContractEarly(kontrakId: string, alasan: string, actor: Profile): Promise<void> {
     // Pengakhiran lebih awal hanya oleh Pemilik, wajib dengan alasan, berlaku sampai akhir bulan berjalan
     if (actor.peran !== 'pemilik') {
       throw new Error('Pengakhiran kontrak lebih awal hanya dapat dilakukan oleh Pemilik.');
@@ -246,9 +336,36 @@ class DataStore {
     const k = this.kontrak.find(item => item.id === kontrakId);
     if (!k) throw new Error('Kontrak tidak ditemukan');
 
+    if (isSupabaseConfigured) {
+      // ---- Alur database atomik (unit & profil dipulihkan di server) ----
+      const { error } = await supabase.rpc('fn_terminate_contract', {
+        p_kontrak_id: kontrakId,
+        p_alasan: alasan,
+      });
+      if (error) {
+        throw new Error(error.message);
+      }
+    }
+
     k.status = 'diakhiri';
     k.alasan_berakhir = alasan;
     k.tanggal_berakhir_aktual = '2026-10-31'; // Akhir bulan berjalan (acuan 15 Okt 2026)
+
+    // Sinkronkan cache lokal: unit kembali tersedia jika tak ada kontrak aktif lain
+    const masihAdaAktif = this.kontrak.some(
+      other => other.unit_id === k.unit_id && other.status === 'aktif' && other.id !== kontrakId
+    );
+    if (!masihAdaAktif) {
+      const unit = this.units.find(u => u.id === k.unit_id);
+      if (unit && unit.status === 'dikontrak') unit.status = 'tersedia';
+    }
+    const penyewaMasihAktif = this.kontrak.some(
+      other => other.penyewa_id === k.penyewa_id && other.status === 'aktif' && other.id !== kontrakId
+    );
+    if (!penyewaMasihAktif) {
+      const penyewa = this.profiles.find(p => p.id === k.penyewa_id);
+      if (penyewa) penyewa.aktif = false;
+    }
 
     this.logAudit(actor, 'akhiri:kontrak', 'kontrak', kontrakId, { status: 'aktif' }, { status: 'diakhiri', alasan });
   }
@@ -319,14 +436,14 @@ class DataStore {
     return createdCount;
   }
 
-  public recordPayment(data: {
+  public async recordPayment(data: {
     tagihan_id: string;
     jumlah: number;
     metode: 'tunai' | 'transfer';
     bukti_path?: string;
     tanggal_bayar: string;
     actor: Profile;
-  }): Pembayaran {
+  }): Promise<Pembayaran> {
     if (data.actor.peran !== 'pengelola') {
       throw new Error('Hanya Pengelola yang berhak mencatat pembayaran.');
     }
@@ -362,6 +479,9 @@ class DataStore {
     };
 
     this.pembayaran.push(payment);
+
+    // Sinkronisasi ke Supabase (didegradasi ke lokal bila gagal, mis. sesi kedaluwarsa)
+    await this.persistPayment(payment);
 
     // Update status tagihan otomatis (BR-08)
     t.denda = dendaSaatBayar;
@@ -427,6 +547,111 @@ class DataStore {
     this.logAudit(actor, 'batal:tagihan', 'tagihan', tagihanId, { status: 'belum_bayar' }, { status: 'dibatalkan' });
   }
 
+  // --- SINKRONISASI SUPABASE (menyimpan perubahan ke database) ---
+  // Semua metode berikut didegradasi ke lokal bila Supabase tidak dikonfigurasi
+  // atau sesi otentikasi tidak valid, agar mode demo tetap berjalan.
+
+  /**
+   * Data hasil seed (Data_Contoh_Properti) dianggap dummy: status verifikasinya
+   * TIDAK boleh di-reset ke antrean saat penggunanya menyimpan ulang identitas.
+   * Reset 'belum' hanya berlaku untuk pengguna baru di luar data dummy.
+   */
+  private isSeedDummyPenyewa(penyewaId: string): boolean {
+    return MOCK_IDENTITAS.some(i => i.penyewa_id === penyewaId);
+  }
+
+  /** Simpan/upsert data identitas penyewa (KTP) ke tabel identitas_penyewa */
+  public async saveTenantIdentity(data: {
+    penyewa_id: string;
+    nik: string;
+    alamat_asal: string;
+    kontak_darurat_nama: string;
+    kontak_darurat_hp: string;
+    foto_ktp_path?: string;
+  }): Promise<void> {
+    // Reset antrean verifikasi hanya untuk pengguna di luar data dummy (seed)
+    const idx = this.identitas.findIndex(i => i.penyewa_id === data.penyewa_id);
+    const isDummy = this.isSeedDummyPenyewa(data.penyewa_id);
+    const newStatus: VerifikasiStatus =
+      isDummy && idx >= 0 ? this.identitas[idx].status_verifikasi : 'belum';
+
+    if (idx >= 0) {
+      this.identitas[idx] = {
+        ...this.identitas[idx],
+        nik: data.nik,
+        alamat_asal: data.alamat_asal,
+        kontak_darurat_nama: data.kontak_darurat_nama,
+        kontak_darurat_hp: data.kontak_darurat_hp,
+        foto_ktp_path: data.foto_ktp_path ?? this.identitas[idx].foto_ktp_path,
+        status_verifikasi: newStatus, // data dummy tetap memakai status seed-nya
+      };
+    } else {
+      this.identitas.push({
+        penyewa_id: data.penyewa_id,
+        nik: data.nik,
+        alamat_asal: data.alamat_asal,
+        kontak_darurat_nama: data.kontak_darurat_nama,
+        kontak_darurat_hp: data.kontak_darurat_hp,
+        foto_ktp_path: data.foto_ktp_path,
+        status_verifikasi: newStatus,
+      });
+    }
+
+    if (!isSupabaseConfigured) return;
+    const { error } = await supabase.from('identitas_penyewa').upsert({
+      penyewa_id: data.penyewa_id,
+      nik: data.nik,
+      alamat_asal: data.alamat_asal,
+      kontak_darurat_nama: data.kontak_darurat_nama,
+      kontak_darurat_hp: data.kontak_darurat_hp,
+      foto_ktp_path: data.foto_ktp_path ?? null,
+      status_verifikasi: newStatus,
+    }, { onConflict: 'penyewa_id' });
+    if (error) {
+      throw new Error(`Gagal menyimpan identitas ke database: ${error.message}`);
+    }
+  }
+
+  /** Masukkan ke pembayaran ke Supabase (dipanggil setelah rekam lokal) */
+  private async persistPayment(payment: Pembayaran): Promise<void> {
+    if (!isSupabaseConfigured) return;
+    const { error } = await supabase.from('pembayaran').insert({
+      id: payment.id,
+      tagihan_id: payment.tagihan_id,
+      jumlah: payment.jumlah,
+      metode: payment.metode,
+      tanggal_bayar: payment.tanggal_bayar,
+      bukti_path: payment.bukti_path,
+      status: payment.status,
+      dicatat_oleh: payment.dicatat_oleh,
+      dibuat_pada: payment.dibuat_pada,
+    });
+    if (error) {
+      console.warn('Pembayaran tersimpan lokal, namun gagal sinkron ke Supabase:', error.message);
+    }
+  }
+
+  /** Masukkan ke laporan kerusakan ke Supabase (dipanggil setelah rekam lokal) */
+  private async persistDamageReport(report: LaporanKerusakan): Promise<void> {
+    if (!isSupabaseConfigured) return;
+    const { error } = await supabase.from('laporan_kerusakan').insert({
+      id: report.id,
+      nomor: report.nomor,
+      kontrak_id: report.kontrak_id,
+      unit_id: report.unit_id,
+      pelapor_id: report.pelapor_id,
+      kategori: report.kategori,
+      judul: report.judul,
+      deskripsi: report.deskripsi,
+      foto_paths: report.foto_paths,
+      status: report.status,
+      dibuat_pada: report.dibuat_pada,
+    });
+    if (error) {
+      console.warn('Laporan tersimpan lokal, namun gagal sinkron ke Supabase:', error.message);
+    }
+  }
+
   // --- LAPORAN KERUSAKAN ---
   public getDamageReports(): LaporanKerusakan[] {
     return this.kerusakan.map(lk => ({
@@ -436,14 +661,14 @@ class DataStore {
     }));
   }
 
-  public createDamageReport(data: {
+  public async createDamageReport(data: {
     unit_id: string;
     kategori: string;
     judul: string;
     deskripsi?: string;
     foto_paths: string[];
     actor: Profile;
-  }): LaporanKerusakan {
+  }): Promise<LaporanKerusakan> {
     // Laporan kerusakan hanya bisa dibuat penyewa yang memiliki kontrak aktif
     const activeContract = this.kontrak.find(
       k => k.penyewa_id === data.actor.id && k.unit_id === data.unit_id && k.status === 'aktif'
@@ -485,6 +710,10 @@ class DataStore {
     };
 
     this.kerusakan.push(report);
+
+    // Sinkronisasi ke Supabase (didegradasi ke lokal bila gagal)
+    await this.persistDamageReport(report);
+
     this.logAudit(data.actor, 'buat:laporan_kerusakan', 'laporan_kerusakan', report.id, null, report);
     return report;
   }

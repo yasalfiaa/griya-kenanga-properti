@@ -29,7 +29,12 @@ CREATE TABLE IF NOT EXISTS public.identitas_penyewa (
     status_verifikasi TEXT NOT NULL CHECK (status_verifikasi IN ('belum', 'terverifikasi', 'ditolak')) DEFAULT 'belum',
     diverifikasi_oleh UUID REFERENCES public.profiles(id),
     diverifikasi_pada TIMESTAMPTZ,
-    catatan_verifikasi TEXT
+    catatan_verifikasi TEXT,
+    -- Validasi: penolakan identitas wajib disertai alasan (catatan tidak boleh kosong)
+    CONSTRAINT identitas_penyewa_tolak_wajib_catatan CHECK (
+        status_verifikasi <> 'ditolak'
+        OR (catatan_verifikasi IS NOT NULL AND btrim(catatan_verifikasi) <> '')
+    )
 );
 
 -- 3. TABEL UNIT (24 Unit: Lantai 1 Standar, Lantai 2 AC, Lantai 3 Studio)

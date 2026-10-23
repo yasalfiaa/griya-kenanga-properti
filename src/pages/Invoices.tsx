@@ -3,6 +3,12 @@ import { useAuth } from '../context/AuthContext';
 import { dataStore } from '../api/data-service';
 import { Tagihan, Pembayaran } from '../types/database';
 import { formatRupiah } from '../utils/business-rules';
+import {
+  ACCEPTED_IMAGE_ATTR,
+  validateImageFile,
+  uploadImage,
+  STORAGE_BUCKETS,
+} from '../api/storage';
 import { ModalErrorAlert } from '../components/ModalErrorAlert';
 import { parseErrorMessage } from '../utils/error-handler';
 import {
@@ -28,12 +34,19 @@ export const Invoices: React.FC = () => {
   const [payAmount, setPayAmount] = useState<number>(0);
   const [payMethod, setPayMethod] = useState<'tunai' | 'transfer'>('tunai');
   const [payDate, setPayDate] = useState<string>('2026-10-15'); // Tanggal acuan
-  const [buktiPath, setBuktiPath] = useState<string>('bukti_transfer/tf_okt_2026.jpg');
+  const [buktiFile, setBuktiFile] = useState<File | null>(null);
+  const [buktiPreview, setBuktiPreview] = useState<string | null>(null);
+  const [buktiError, setBuktiError] = useState<string | null>(null);
+  const [isSavingPayment, setIsSavingPayment] = useState(false);
   const [payModalError, setPayModalError] = useState<string | null>(null);
 
   // Modal Batalkan Pembayaran (Pemilik)
   const [cancelingPayment, setCancelingPayment] = useState<any | null>(null);
   const [cancelReason, setCancelReason] = useState<string>('');
+  // Modal Batalkan Tagihan (Pemilik) — pola error standar
+  const [cancelingInvoice, setCancelingInvoice] = useState<Tagihan | null>(null);
+  const [invoiceCancelError, setInvoiceCancelError] = useState<string | null>(null);
+  const [isCancellingInvoice, setIsCancellingInvoice] = useState(false);
 
   const filteredInvoices = invoices.filter(inv => {
     const matchesPeriod = selectedPeriod === 'all' ? true : inv.periode.startsWith(selectedPeriod);
@@ -64,20 +77,66 @@ export const Invoices: React.FC = () => {
     }
   };
 
-  const handleRecordPayment = () => {
+  const handleBuktiSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setBuktiError(null);
+    if (!file) {
+      setBuktiFile(null);
+      return;
+    }
+    const err = validateImageFile(file);
+    if (err) {
+      setBuktiFile(null);
+      e.target.value = '';
+      setBuktiError(err);
+      return;
+    }
+    // Pratinjau foto bukti transfer sebelum diunggah
+    if (buktiPreview) URL.revokeObjectURL(buktiPreview);
+    setBuktiFile(file);
+    setBuktiPreview(URL.createObjectURL(file));
+  };
+
+  const handleRecordPayment = async () => {
     if (!payingInvoice || !currentUser) return;
     try {
+      setIsSavingPayment(true);
       setPayModalError(null);
-      dataStore.recordPayment({
+
+      // Validasi bukti transfer (wajib untuk metode transfer)
+      if (payMethod === 'transfer' && !buktiFile) {
+        setPayModalError('Pembayaran transfer wajib melampirkan foto bukti transfer.');
+        return;
+      }
+
+      // Unggah foto bukti ke Supabase Storage (bucket publik bukti-bayar)
+      let buktiUrl: string | undefined;
+      if (payMethod === 'transfer' && buktiFile) {
+        const doc = await uploadImage({
+          bucket: STORAGE_BUCKETS.buktiBayar,
+          userId: currentUser.id,
+          kind: 'bukti',
+          file: buktiFile,
+        });
+        buktiUrl = doc.url; // URL publik permanen
+      }
+
+      await dataStore.recordPayment({
         tagihan_id: payingInvoice.id,
         jumlah: payAmount,
         metode: payMethod,
         tanggal_bayar: payDate,
-        bukti_path: payMethod === 'transfer' ? buktiPath : undefined,
+        bukti_path: buktiUrl,
         actor: currentUser,
       });
 
       setInvoices(dataStore.getInvoices());
+
+      // Bersihkan pratinjau
+      if (buktiPreview) URL.revokeObjectURL(buktiPreview);
+      setBuktiFile(null);
+      setBuktiPreview(null);
+
       setMessage({
         type: 'success',
         text: `Pembayaran sebesar ${formatRupiah(payAmount)} berhasil dicatat untuk tagihan ${payingInvoice.nomor}.`,
@@ -86,19 +145,25 @@ export const Invoices: React.FC = () => {
       setPayModalError(null);
     } catch (err: any) {
       setPayModalError(parseErrorMessage(err));
+    } finally {
+      setIsSavingPayment(false);
     }
   };
 
-  const handleCancelInvoice = (inv: Tagihan) => {
-    if (!currentUser) return;
-    if (confirm(`Apakah Anda yakin ingin membatalkan tagihan ${inv.nomor}? (Hanya berlaku jika belum ada pembayaran)`)) {
-      try {
-        dataStore.cancelInvoice(inv.id, currentUser);
-        setInvoices(dataStore.getInvoices());
-        setMessage({ type: 'success', text: `Tagihan ${inv.nomor} berhasil dibatalkan oleh Pemilik.` });
-      } catch (err: any) {
-        setMessage({ type: 'error', text: err.message });
-      }
+  const handleCancelInvoice = async () => {
+    if (!currentUser || !cancelingInvoice) return;
+    try {
+      setIsCancellingInvoice(true);
+      setInvoiceCancelError(null);
+      dataStore.cancelInvoice(cancelingInvoice.id, currentUser);
+      setInvoices(dataStore.getInvoices());
+      setMessage({ type: 'success', text: `Tagihan ${cancelingInvoice.nomor} berhasil dibatalkan oleh Pemilik.` });
+      setCancelingInvoice(null);
+    } catch (err: any) {
+      // Error tidak di-swallow: tampil di dalam modal sampai pengguna menutupnya
+      setInvoiceCancelError(parseErrorMessage(err));
+    } finally {
+      setIsCancellingInvoice(false);
     }
   };
 
@@ -250,7 +315,10 @@ export const Invoices: React.FC = () => {
                       {/* Pemilik: Batalkan Tagihan (hanya jika belum bayar sama sekali) */}
                       {role === 'pemilik' && inv.terbayar === 0 && inv.status !== 'dibatalkan' && (
                         <button
-                          onClick={() => handleCancelInvoice(inv)}
+                          onClick={() => {
+                            setCancelingInvoice(inv);
+                            setInvoiceCancelError(null);
+                          }}
                           title="Batalkan tagihan yang belum dibayar"
                           className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-medium border border-rose-200"
                         >
@@ -349,12 +417,38 @@ export const Invoices: React.FC = () => {
               {payMethod === 'transfer' && (
                 <div>
                   <label className="text-xs font-semibold text-slate-700 block mb-1">
-                    Lampiran Bukti Transfer (Wajib)
+                    Lampiran Bukti Transfer (JPG/PNG/WEBP, Maks 2MB) — Wajib
                   </label>
-                  <div className="flex items-center gap-2 border border-dashed border-slate-300 p-2.5 rounded-xl bg-slate-50 text-xs text-slate-600">
-                    <Camera className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                    <span className="truncate">{buktiPath}</span>
-                  </div>
+                  <input
+                    type="file"
+                    accept={ACCEPTED_IMAGE_ATTR}
+                    onChange={handleBuktiSelect}
+                    className="w-full text-xs text-slate-600 border border-slate-300 rounded-xl px-3 py-2 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-emerald-600 file:text-white file:text-xs file:font-semibold file:cursor-pointer hover:file:bg-emerald-700 cursor-pointer bg-white"
+                    aria-label="Pilih foto bukti transfer"
+                  />
+                  {buktiError && (
+                    <p className="mt-1.5 text-xs font-semibold text-rose-600" role="alert">
+                      {buktiError}
+                    </p>
+                  )}
+                  {buktiPreview && (
+                    <div className="mt-2 flex items-center gap-3 border border-dashed border-slate-300 p-2.5 rounded-xl bg-slate-50">
+                      <img
+                        src={buktiPreview}
+                        alt="Pratinjau bukti transfer"
+                        className="w-20 h-14 object-cover rounded-lg border border-slate-200"
+                      />
+                      <div className="text-xs min-w-0 flex-1">
+                        <span className="font-semibold text-slate-800 block truncate">{buktiFile?.name}</span>
+                        <span className="text-slate-400">
+                          {buktiFile?.size ? `${(buktiFile.size / 1024).toFixed(0)} KB — siap diunggah` : ''}
+                        </span>
+                      </div>
+                      <span className="text-xs bg-emerald-100 text-emerald-800 font-semibold px-2.5 py-1 rounded-lg flex-shrink-0">
+                        Terpilih
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -371,9 +465,68 @@ export const Invoices: React.FC = () => {
               </button>
               <button
                 onClick={handleRecordPayment}
-                className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold shadow-sm"
+                disabled={isSavingPayment}
+                className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-wait text-white rounded-xl font-semibold shadow-sm"
               >
-                Simpan Pembayaran
+                {isSavingPayment ? 'Mengunggah...' : 'Simpan Pembayaran'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Batalkan Tagihan (Pemilik) */}
+      {cancelingInvoice && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+              <Ban className="w-5 h-5 text-rose-600" /> Batalkan Tagihan {cancelingInvoice.nomor}
+            </h3>
+            <p className="text-xs text-slate-500">
+              Tagihan hanya bisa dibatalkan Pemilik dan hanya bila belum memiliki catatan pembayaran sama sekali. Tindakan ini mengubah status tagihan menjadi "Dibatalkan".
+            </p>
+
+            {/* Error Alert Standar Modal: kegagalan tidak di-swallow */}
+            <ModalErrorAlert
+              error={invoiceCancelError}
+              onDismiss={() => setInvoiceCancelError(null)}
+            />
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Invoice:</span>
+                <span className="font-bold text-slate-800">{cancelingInvoice.nomor}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Penyewa:</span>
+                <span className="font-bold text-slate-800">{cancelingInvoice.kontrak?.penyewa?.nama_lengkap}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Nominal:</span>
+                <span className="font-bold text-slate-800">{formatRupiah(cancelingInvoice.nominal_sewa)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Terbayar:</span>
+                <span className="font-bold text-emerald-700">{formatRupiah(cancelingInvoice.terbayar)}</span>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => {
+                  setCancelingInvoice(null);
+                  setInvoiceCancelError(null);
+                }}
+                className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+              >
+                Kembali
+              </button>
+              <button
+                onClick={handleCancelInvoice}
+                disabled={isCancellingInvoice}
+                className="px-4 py-2 text-sm bg-rose-600 hover:bg-rose-700 disabled:opacity-60 disabled:cursor-wait text-white rounded-xl font-semibold shadow-sm"
+              >
+                {isCancellingInvoice ? 'Membatalkan...' : 'Ya, Batalkan Tagihan'}
               </button>
             </div>
           </div>

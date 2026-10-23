@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { dataStore } from '../api/data-service';
 import { maskNIK } from '../utils/business-rules';
+import { getSignedImageUrl, STORAGE_BUCKETS, isHttpUrl } from '../api/storage';
+import { ModalErrorAlert } from '../components/ModalErrorAlert';
+import { parseErrorMessage } from '../utils/error-handler';
 import {
   Users,
   ShieldCheck,
@@ -20,11 +23,49 @@ export const Tenants: React.FC = () => {
   // Modal Verifikasi (Pengelola)
   const [verifyingPenyewa, setVerifyingPenyewa] = useState<any | null>(null);
   const [verificationNotes, setVerificationNotes] = useState('');
+  const [notesError, setNotesError] = useState<string | null>(null);
+  const [ktpImageUrl, setKtpImageUrl] = useState<string | null>(null);
+  const [ktpImageLoading, setKtpImageLoading] = useState(false);
+  // Error DB/BR di dalam modal verifikasi (bukan hanya validasi catatan)
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
 
-  const handleVerify = (status: 'terverifikasi' | 'ditolak') => {
+  // Saat modal verifikasi dibuka, ambil foto KTP:
+  //  - berkas baru (path storage privat) -> signed URL kedaluwarsa 5 menit
+  //  - berkas URL publik (mock lama)     -> langsung pakai URL-nya
+  useEffect(() => {
+    let cancelled = false;
+    setKtpImageUrl(null);
+    const path = verifyingPenyewa?.identitas?.foto_ktp_path;
+    if (!path) return;
+    setKtpImageLoading(true);
+    if (isHttpUrl(path)) {
+      setKtpImageUrl(path);
+      setKtpImageLoading(false);
+    } else {
+      getSignedImageUrl(path, STORAGE_BUCKETS.ktp).then(url => {
+        if (!cancelled) {
+          setKtpImageUrl(url);
+          setKtpImageLoading(false);
+        }
+      });
+    }
+    return () => { cancelled = true; };
+  }, [verifyingPenyewa]);
+
+  const handleVerify = async (status: 'terverifikasi' | 'ditolak') => {
     if (!verifyingPenyewa || !currentUser) return;
+
+    // Validasi Front-End: penolakan identitas wajib menyertakan alasan
+    if (status === 'ditolak' && verificationNotes.trim().length === 0) {
+      setNotesError('Alasan penolakan wajib diisi.');
+      return;
+    }
+
     try {
-      dataStore.verifyTenantIdentity(verifyingPenyewa.profile.id, status, verificationNotes, currentUser);
+      setIsVerifying(true);
+      setVerifyError(null);
+      await dataStore.verifyTenantIdentity(verifyingPenyewa.profile.id, status, verificationNotes, currentUser);
       setTenants(dataStore.getTenants());
       setMessage({
         type: 'success',
@@ -32,8 +73,18 @@ export const Tenants: React.FC = () => {
       });
       setVerifyingPenyewa(null);
       setVerificationNotes('');
+      setNotesError(null);
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
+      const parsed = parseErrorMessage(err);
+      if (parsed.includes('Alasan penolakan')) {
+        // Tampilkan hanya di dalam modal agar pesan bersih & kontekstual
+        setNotesError(parsed);
+      } else {
+        // Error DB/BR lain juga tampil DI DALAM modal (tidak di-swallow ke banner)
+        setVerifyError(parsed);
+      }
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -161,7 +212,10 @@ export const Tenants: React.FC = () => {
                         <button
                           onClick={() => {
                             setVerifyingPenyewa({ profile, identitas });
+                            setVerifyError(null);
+                            setNotesError(null);
                             setVerificationNotes(identitas.catatan_verifikasi || '');
+                            setNotesError(null);
                           }}
                           className="px-3 py-1.5 text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg font-semibold transition-colors border border-emerald-200"
                         >
@@ -186,6 +240,12 @@ export const Tenants: React.FC = () => {
             <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-emerald-600" /> Verifikasi Identitas Penyewa
             </h3>
+
+            {/* Error DB/BR standar: tampil di dalam modal sampai ditutup */}
+            <ModalErrorAlert
+              error={verifyError}
+              onDismiss={() => setVerifyError(null)}
+            />
 
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs space-y-2">
               <div className="flex justify-between">
@@ -214,6 +274,29 @@ export const Tenants: React.FC = () => {
               </div>
             </div>
 
+            {/* Pratinjau Foto KTP (asli dari Supabase Storage) */}
+            <div>
+              <p className="text-xs font-semibold text-slate-700 mb-1.5">Pratinjau Foto KTP:</p>
+              {ktpImageLoading ? (
+                <div className="w-full h-32 bg-slate-100 rounded-xl flex items-center justify-center text-xs text-slate-400">
+                  Memuat pratinjau...
+                </div>
+              ) : ktpImageUrl ? (
+                <a href={ktpImageUrl} target="_blank" rel="noreferrer" title="Buka foto ukuran penuh">
+                  <img
+                    src={ktpImageUrl}
+                    alt={`Foto KTP ${verifyingPenyewa.profile.nama_lengkap}`}
+                    className="w-full max-h-48 object-contain rounded-xl border border-slate-200 bg-slate-50 hover:opacity-90 transition-opacity"
+                  />
+                </a>
+              ) : (
+                <div className="w-full h-32 bg-slate-100 rounded-xl flex flex-col items-center justify-center gap-1 text-xs text-slate-400">
+                  <FileText className="w-6 h-6" />
+                  <span className="text-center">Pratinjau tidak tersedia.<br />Nama berkas tetap tampil di atas.</span>
+                </div>
+              )}
+            </div>
+
             <div>
               <label className="text-xs font-semibold text-slate-700 block mb-1">
                 Catatan Verifikasi (Wajib jika menolak)
@@ -221,28 +304,46 @@ export const Tenants: React.FC = () => {
               <textarea
                 rows={2}
                 value={verificationNotes}
-                onChange={(e) => setVerificationNotes(e.target.value)}
+                onChange={(e) => {
+                  setVerificationNotes(e.target.value);
+                  if (notesError) setNotesError(null);
+                }}
                 placeholder="Misal: Foto KTP jelas, NIK sesuai data kependudukan."
-                className="w-full text-xs border border-slate-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                aria-invalid={!!notesError}
+                className={`w-full text-xs border rounded-xl p-2.5 focus:ring-2 focus:outline-none ${
+                  notesError
+                    ? 'border-rose-500 focus:ring-rose-500'
+                    : 'border-slate-300 focus:ring-emerald-500'
+                }`}
               />
+              {notesError && (
+                <p className="mt-1 text-xs font-semibold text-rose-600" role="alert">
+                  {notesError}
+                </p>
+              )}
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
               <button
-                onClick={() => setVerifyingPenyewa(null)}
+                onClick={() => {
+                  setVerifyingPenyewa(null);
+                  setVerifyError(null);
+                }}
                 className="px-4 py-2 text-xs text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
               >
                 Tutup
               </button>
               <button
                 onClick={() => handleVerify('ditolak')}
-                className="px-4 py-2 text-xs bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold shadow-sm"
+                disabled={isVerifying}
+                className="px-4 py-2 text-xs bg-rose-600 hover:bg-rose-700 disabled:opacity-60 disabled:cursor-wait text-white rounded-xl font-semibold shadow-sm"
               >
                 Tolak Identitas
               </button>
               <button
                 onClick={() => handleVerify('terverifikasi')}
-                className="px-4 py-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold shadow-sm"
+                disabled={isVerifying}
+                className="px-4 py-2 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-wait text-white rounded-xl font-semibold shadow-sm flex items-center gap-1"
               >
                 Verifikasi & Setujui
               </button>
