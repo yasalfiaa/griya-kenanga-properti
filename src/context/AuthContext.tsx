@@ -16,57 +16,79 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Ambil user tersimpan atau default ke Ratna (Pemilik)
+  const [isLoading, setIsLoading] = useState(isSupabaseConfigured);
+
+  // Dengan Supabase aktif: jangan pernah default ke "pura-pura login"
+  // dengan profil mock (mock Ratna dsb.). currentUser harus null sampai
+  // sesi Supabase Auth yang asli (JWT) terverifikasi — sebab semua fungsi
+  // SQL (fn_create_contract, fn_create_mayar_payment_session, dst.) bergantung
+  // pada auth.uid(); tanpa JWT asli aksi apa pun akan gagal dengan
+  // "Unauthenticated: sesi login tidak ditemukan."
+  //
+  // Tanpa Supabase konfigur: mode demo lokal memakai profil mock disimpan.
   const [currentUser, setCurrentUser] = useState<Profile | null>(() => {
-    const saved = localStorage.getItem('griya_user_id');
-    if (saved) {
-      const found = (MOCK_PROFILES as unknown as Profile[]).find(p => p.id === saved);
-      if (found) return found;
+    if (!isSupabaseConfigured) {
+      const saved = localStorage.getItem('griya_user_id');
+      if (saved) {
+        const found = (MOCK_PROFILES as unknown as Profile[]).find(p => p.id === saved);
+        if (found) return found;
+      }
+      return (MOCK_PROFILES as unknown as Profile[])[0] || null;
     }
-    return (MOCK_PROFILES as unknown as Profile[])[0] || null;
+    return null;
   });
 
-  const [isLoading, setIsLoading] = useState(false);
-
   useEffect(() => {
-    if (isSupabaseConfigured) {
-      // 1. Cek sesi aktif Supabase Auth
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session?.user) {
-          supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .maybeSingle()
-            .then(({ data }) => {
-              if (data) {
-                setCurrentUser(data as Profile);
-                localStorage.setItem('griya_user_id', data.id);
-                dataStore.loadFromSupabase();
-              }
-            });
-        }
-      });
-
-      // 2. Berlangganan perubahan status otentikasi
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-        if (session?.user) {
-          const { data } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .maybeSingle();
-
-          if (data) {
-            setCurrentUser(data as Profile);
-            localStorage.setItem('griya_user_id', data.id);
-            await dataStore.loadFromSupabase();
-          }
-        }
-      });
-
-      return () => subscription.unsubscribe();
+    if (!isSupabaseConfigured) {
+      setIsLoading(false);
+      return;
     }
+
+    const loadProfile = async (userId: string): Promise<boolean> => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (data) {
+        setCurrentUser(data as Profile);
+        localStorage.setItem('griya_user_id', data.id);
+        await dataStore.loadFromSupabase();
+        return true;
+      }
+
+      // Sesinya valid tapi profil tidak ada → tidak dianggap login
+      setCurrentUser(null);
+      localStorage.removeItem('griya_user_id');
+      return false;
+    };
+
+    // 1. Pulihkan sesi yang tersimpan (refresh halaman / origin berubah)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        loadProfile(session.user.id).finally(() => setIsLoading(false));
+      } else {
+        setCurrentUser(null); // eksplisit: tidak ada sesi → tampilan login
+        setIsLoading(false);
+      }
+    });
+
+    // 2. Reaksi terhadap perubahan status otentikasi (login/logout/refresh token)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session?.user) {
+          await loadProfile(session.user.id);
+          setIsLoading(false);
+        } else if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
+          setCurrentUser(null);
+          localStorage.removeItem('griya_user_id');
+          setIsLoading(false);
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const loginAs = async (
@@ -110,39 +132,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setIsLoading(false);
             return { success: true };
           }
+
+          // Penting: jangan dianggap login sukses di sisi UI bila profil
+          // belum tersedia — aksi yang memakai auth.uid() akan gagal.
+          setIsLoading(false);
+          return {
+            success: false,
+            message: 'Akun terautentikasi, tetapi profil belum tersedia. Silakan daftar ulang atau hubungi Pengelola.',
+          };
         }
       }
 
-      // Kasus 2: Quick Demo Login (tanpa password atau bypass untuk akun uji coba)
-      if (isSupabaseConfigured) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .ilike('email', cleanEmail)
-          .maybeSingle();
-
-        if (profileData) {
-          setCurrentUser(profileData as Profile);
-          localStorage.setItem('griya_user_id', profileData.id);
-          await dataStore.loadFromSupabase();
+      // Kasus 2 (hanya mode tanpa Supabase / demo lokal): fallback ke mock
+      // profil. Dengan Supabase aktif, login TANPA password tidak boleh
+      // dianggap sebagai sesi nyata (JWT), sebab aksi transaksional
+      // akan selalu gagal "Unauthenticated: sesi login tidak ditemukan".
+      if (!isSupabaseConfigured) {
+        const mockProfile = (MOCK_PROFILES as unknown as Profile[]).find(
+          p => p.email.toLowerCase() === cleanEmail
+        );
+        if (mockProfile) {
+          setCurrentUser(mockProfile);
+          localStorage.setItem('griya_user_id', mockProfile.id);
           setIsLoading(false);
           return { success: true };
         }
       }
 
-      // Kasus 3: Fallback ke mock profiles lokal jika offline
-      const mockProfile = (MOCK_PROFILES as unknown as Profile[]).find(
-        p => p.email.toLowerCase() === cleanEmail
-      );
-      if (mockProfile) {
-        setCurrentUser(mockProfile);
-        localStorage.setItem('griya_user_id', mockProfile.id);
-        setIsLoading(false);
-        return { success: true };
-      }
-
       setIsLoading(false);
-      return { success: false, message: 'Akun dengan email tersebut tidak ditemukan.' };
+      return {
+        success: false,
+        message: isSupabaseConfigured
+          ? 'Login tanpa kata sandi didukung pada mode demo lokal saja. Silakan masukkan kata sandi.'
+          : 'Akun dengan email tersebut tidak ditemukan.',
+      };
     } catch (err: any) {
       setIsLoading(false);
       return { success: false, message: err?.message || 'Terjadi kesalahan sistem saat login' };

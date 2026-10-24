@@ -1,14 +1,20 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { Home, Lock, Mail, Users, ArrowRight, ShieldCheck } from 'lucide-react';
 
 export const Login: React.FC = () => {
-  const { loginAs } = useAuth();
+  const { loginAs, currentUser } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('ratna@griyakenanga.test');
   const [password, setPassword] = useState('Latihan#2026');
   const [error, setError] = useState('');
+
+  // Bila pengguna sudah mempunyai sesi (sesi terpulihkan atau baru login),
+  // langsung arahkan ke beranda.
+  React.useEffect(() => {
+    if (currentUser) navigate('/', { replace: true });
+  }, [currentUser, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
