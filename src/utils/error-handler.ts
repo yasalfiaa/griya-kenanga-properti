@@ -86,6 +86,11 @@ export function translateServerMessage(rawMessage: string): string | null {
     return 'Fungsi proses belum tersedia di server. Pastikan skrip migration SQL sudah dijalankan di SQL Editor.';
   }
 
+  // --- Sesi/transport Edge Function ---
+  if (msg.includes('failed to send a request to the edge function') || msg.includes('functions_relay')) {
+    return 'Server pembayaran online (Edge Function) belum ter-deploy atau tidak dapat dihubungi. Jalankan "supabase functions deploy create-mayar-payment", atau lanjutkan dengan mode Sandbox Demo.';
+  }
+
   // --- Aturan bisnis: satu penyewa satu kontrak aktif ---
   if (
     msg.includes('kontrak aktif lain') ||

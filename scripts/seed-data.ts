@@ -15,12 +15,12 @@ if (fs.existsSync(envPath)) {
   });
 }
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 async function runSeed() {
   if (!supabaseUrl || !serviceKey || supabaseUrl.includes('placeholder')) {
-    console.error('❌ Error: Kredensial VITE_SUPABASE_URL dan SUPABASE_SERVICE_ROLE_KEY belum diisi di file .env');
+    console.error('❌ Error: Kredensial NEXT_PUBLIC_SUPABASE_URL dan SUPABASE_SERVICE_ROLE_KEY belum diisi di file .env');
     console.log('Silakan buat file .env dari .env.example dan isi kredensial proyek Supabase Anda.');
     process.exit(1);
   }

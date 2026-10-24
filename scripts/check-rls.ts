@@ -9,7 +9,7 @@ envContent.split('\n').forEach(line => {
   if (k && v.length) env[k.trim()] = v.join('=').trim();
 });
 
-const supabase = createClient(env['VITE_SUPABASE_URL'], env['SUPABASE_SERVICE_ROLE_KEY']);
+const supabase = createClient(env['NEXT_PUBLIC_SUPABASE_URL'], env['SUPABASE_SERVICE_ROLE_KEY']);
 
 async function checkRLS() {
   // Query pg_tables and pg_class to check relrowsecurity

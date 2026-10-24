@@ -10,8 +10,8 @@ envContent.split('\n').forEach(line => {
   if (k && v.length) env[k.trim()] = v.join('=').trim();
 });
 
-const url = env['VITE_SUPABASE_URL'];
-const key = env['SUPABASE_SERVICE_ROLE_KEY'] || env['VITE_SUPABASE_ANON_KEY'];
+const url = env['NEXT_PUBLIC_SUPABASE_URL'];
+const key = env['SUPABASE_SERVICE_ROLE_KEY'] || env['NEXT_PUBLIC_SUPABASE_ANON_KEY'];
 
 console.log('--- VERIFIKASI BASIS DATA SUPABASE LANGSUNG ---');
 console.log('Project URL:', url);

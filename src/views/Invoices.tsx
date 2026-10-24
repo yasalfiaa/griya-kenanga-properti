@@ -11,6 +11,7 @@ import {
 } from '../api/storage';
 import { ModalErrorAlert } from '../components/ModalErrorAlert';
 import { parseErrorMessage } from '../utils/error-handler';
+import { createOnlinePayment } from '../api/mayar';
 import {
   Receipt,
   PlusCircle,
@@ -48,6 +49,16 @@ export const Invoices: React.FC = () => {
   const [cancelingInvoice, setCancelingInvoice] = useState<Tagihan | null>(null);
   const [invoiceCancelError, setInvoiceCancelError] = useState<string | null>(null);
   const [isCancellingInvoice, setIsCancellingInvoice] = useState(false);
+
+  // Modal Bayar Online via Mayar (Penyewa, US-06) — pola error standar
+  const [onlinePayInvoice, setOnlinePayInvoice] = useState<Tagihan | null>(null);
+  const [onlinePayError, setOnlinePayError] = useState<string | null>(null);
+  const [isStartingOnlinePay, setIsStartingOnlinePay] = useState(false);
+  const [onlinePayResult, setOnlinePayResult] = useState<
+    | { link: string; nomor: string; sisa: number; mode: string }
+    | null
+  >(null);
+  const [isRefreshingStatus, setIsRefreshingStatus] = useState(false);
 
   const filteredInvoices = invoices.filter(inv => {
     const matchesPeriod = selectedPeriod === 'all' ? true : inv.periode.startsWith(selectedPeriod);
@@ -88,8 +99,37 @@ export const Invoices: React.FC = () => {
     }
   };
 
-  const handleBuktiSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
+  const handleStartOnlinePay = async () => {
+    if (!onlinePayInvoice || !currentUser) return;
+    try {
+      setIsStartingOnlinePay(true);
+      setOnlinePayError(null);
+      const session = await createOnlinePayment(onlinePayInvoice.id);
+      setOnlinePayResult(session);
+    } catch (err: any) {
+      // Error tidak di-swallow: tampil di dalam modal sampai ditutup
+      setOnlinePayError(parseErrorMessage(err));
+    } finally {
+      setIsStartingOnlinePay(false);
+    }
+  };
+
+  const handleRefreshStatus = async () => {
+    try {
+      setIsRefreshingStatus(true);
+      await dataStore.loadFromSupabase();
+      setInvoices(dataStore.getInvoices());
+      setMessage({ type: 'success', text: 'Status tagihan berhasil dimuat ulang dari server.' });
+      setOnlinePayInvoice(null);
+      setOnlinePayResult(null);
+    } catch (err: any) {
+      setOnlinePayError(parseErrorMessage(err));
+    } finally {
+      setIsRefreshingStatus(false);
+    }
+  };
+
+  const handleBuktiSelect = (e: React.ChangeEvent<HTMLInputElement>) => {    const file = e.target.files?.[0] || null;
     setBuktiError(null);
     if (!file) {
       setBuktiFile(null);
@@ -312,6 +352,20 @@ export const Invoices: React.FC = () => {
                   <td className="py-3.5 px-4">{getStatusBadge(inv.status)}</td>
                   <td className="py-3.5 px-4 text-right">
                     <div className="flex items-center justify-end gap-1.5">
+                      {/* Penyewa: Bayar Online via Mayar (US-06) */}
+                      {role === 'penyewa' && inv.status !== 'lunas' && inv.status !== 'dibatalkan' && (
+                        <button
+                          onClick={() => {
+                            setOnlinePayInvoice(inv);
+                            setOnlinePayError(null);
+                            setOnlinePayResult(null);
+                          }}
+                          className="px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold shadow-sm transition-colors flex items-center gap-1"
+                        >
+                          <CreditCard className="w-3.5 h-3.5" /> Bayar Online
+                        </button>
+                      )}
+
                       {/* Pengelola: Catat Pembayaran */}
                       {role === 'pengelola' && inv.status !== 'lunas' && inv.status !== 'dibatalkan' && (
                         <button
@@ -597,6 +651,107 @@ export const Invoices: React.FC = () => {
                 {isGenerating ? 'Memproses...' : 'Buat Tagihan'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Bayar Online via Mayar (Penyewa, US-06) */}
+      {onlinePayInvoice && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-indigo-600" /> Bayar Online — {onlinePayInvoice.nomor}
+            </h3>
+            <p className="text-xs text-slate-500">
+              Pembayaran diproses melalui payment gateway <strong>Mayar</strong> (US-06). Nominal mengikuti sisa
+              tagihan termasuk denda yang berjalan. Setelah membayar, klik "Saya Sudah Bayar" untuk memuat ulang
+              status tagihan.
+            </p>
+
+            {/* Error Alert Standar Modal: kegagalan tidak di-swallow */}
+            <ModalErrorAlert
+              error={onlinePayError}
+              onDismiss={() => setOnlinePayError(null)}
+            />
+
+            {!onlinePayResult ? (
+              <>
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Invoice:</span>
+                    <span className="font-bold text-slate-800">{onlinePayInvoice.nomor}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Sisa Tagihan (bayar penuh):</span>
+                    <span className="font-extrabold text-emerald-700">
+                      {formatRupiah(onlinePayInvoice.sisa_tagihan || 0)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Metode:</span>
+                    <span className="font-bold text-slate-800">Online (Mayar)</span>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    onClick={() => {
+                      setOnlinePayInvoice(null);
+                      setOnlinePayError(null);
+                    }}
+                    className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    onClick={handleStartOnlinePay}
+                    disabled={isStartingOnlinePay}
+                    className="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-wait text-white rounded-xl font-semibold shadow-sm flex items-center gap-2"
+                  >
+                    {isStartingOnlinePay && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {isStartingOnlinePay ? 'Menyiapkan...' : 'Lanjutkan ke Pembayaran'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-xs space-y-1.5">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Link Pembayaran:</span>
+                    <span className="font-bold text-indigo-700 truncate max-w-[220px]">
+                      {onlinePayResult.link}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Nominal:</span>
+                    <span className="font-extrabold text-emerald-700">{formatRupiah(onlinePayResult.sisa)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Mode:</span>
+                    <span className="font-semibold text-slate-700">
+                      {onlinePayResult.mode === 'mayar' ? 'Mayar (asli)' : 'Sandbox Demo'}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    onClick={handleRefreshStatus}
+                    disabled={isRefreshingStatus}
+                    className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-wait text-white rounded-xl font-semibold shadow-sm flex items-center gap-2"
+                  >
+                    {isRefreshingStatus && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {isRefreshingStatus ? 'Memuat...' : 'Saya Sudah Bayar'}
+                  </button>
+                  <a
+                    href={onlinePayResult.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold shadow-sm"
+                  >
+                    Buka Halaman Bayar
+                  </a>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
