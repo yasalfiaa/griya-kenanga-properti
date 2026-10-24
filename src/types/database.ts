@@ -82,6 +82,7 @@ export interface Tagihan {
   status: TagihanStatus;
   mayar_invoice_id?: string | null;
   mayar_link?: string | null;
+  dibayar_online_at?: string | null;
   // Calculated/Joined
   kontrak?: Kontrak;
   total_tagihan?: number;

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { dataStore } from '../api/data-service';
+import { supabase } from '../api/supabase';
 import { Tagihan, Pembayaran } from '../types/database';
 import { formatRupiah } from '../utils/business-rules';
 import {
@@ -10,6 +11,8 @@ import {
   STORAGE_BUCKETS,
 } from '../api/storage';
 import { ModalErrorAlert } from '../components/ModalErrorAlert';
+import { Badge } from '../components/ui/Badge';
+import { EmptyState } from '../components/ui/EmptyState';
 import { parseErrorMessage } from '../utils/error-handler';
 import { createOnlinePayment } from '../api/mayar';
 import {
@@ -59,6 +62,11 @@ export const Invoices: React.FC = () => {
     | null
   >(null);
   const [isRefreshingStatus, setIsRefreshingStatus] = useState(false);
+
+  // === Bayar Online via API Mayar V2 (semua role; tombol utama) ===
+  const [isMembuatLink, setIsMembuatLink] = useState<string | null>(null); // id tagihan yang sedang dibuatkan link
+  const [pollingTagihan, setPollingTagihan] = useState<string | null>(null); // id tagihan yang dipantau statusnya
+  const [lunasOnline, setLunasOnline] = useState<{ id: string; waktu: string } | null>(null);
 
   const filteredInvoices = invoices.filter(inv => {
     const matchesPeriod = selectedPeriod === 'all' ? true : inv.periode.startsWith(selectedPeriod);
@@ -113,6 +121,115 @@ export const Invoices: React.FC = () => {
       setIsStartingOnlinePay(false);
     }
   };
+
+  // === Tombol Bayar Online utama: panggil /api/pembayaran/buat (Mayar V2) ===
+  // Semua role (penyewa/pengelola/pemilik) memakai tombol ini.
+  // Penyewa yang mendapat 403 → fallback ke modal US-06 yang lama (alur tidak berubah).
+  const handleBayarOnline = async (inv: Tagihan) => {
+    if (!currentUser || isMembuatLink !== null) return;
+    try {
+      setIsMembuatLink(inv.id);
+      setMessage(null);
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/pembayaran/buat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token ?? ''}`,
+        },
+        body: JSON.stringify({ tagihan_id: inv.id }),
+      });
+      const body = (await res.json().catch(() => null)) as { link?: string; message?: string } | null;
+
+      if (!res.ok || !body?.link) {
+        // Penyewa tanpa akses API V2 → alur US-06 lama (modal Mayar fallback) tetap dipakai
+        if (res.status === 403 && role === 'penyewa') {
+          setOnlinePayInvoice(inv);
+          setOnlinePayError(null);
+          setOnlinePayResult(null);
+          return;
+        }
+        const err = new Error(body?.message || 'Gagal membuat tautan pembayaran online.');
+        err.message = body?.message || err.message;
+        throw err;
+      }
+
+      // Buka tautan Mayar di tab baru; jika popup diblokir → fallback modal lama
+      const jendela = window.open(body.link, '_blank', 'noopener');
+      if (!jendela) {
+        setOnlinePayInvoice(inv);
+        setOnlinePayError(null);
+        setOnlinePayResult(null);
+      }
+      // Mulai pantau status tagihan secara berkala (lihat useEffect polling)
+      setPollingTagihan(inv.id);
+      setMessage({ type: 'success', text: 'Tautan pembayaran dibuat. Tab Mayar terbuka — status tagihan dipantau otomatis.' });
+    } catch (err: any) {
+      setMessage({ type: 'error', text: parseErrorMessage(err) });
+    } finally {
+      setIsMembuatLink(null);
+    }
+  };
+
+  // === Polling status tagihan tiap 5 detik, maksimal 5 menit ===
+  useEffect(() => {
+    if (!pollingTagihan) return;
+    const idTagihan = pollingTagihan;
+    const mulai = Date.now();
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    const periksa = async () => {
+      if (Date.now() - mulai > 5 * 60 * 1000) {
+        // Batas 5 menit tercapai → berhenti memantau
+        if (interval) clearInterval(interval);
+        setPollingTagihan(null);
+        setMessage({ type: 'error', text: 'Pemantauan berhenti setelah 5 menit. Tagihan belum terdeteksi lunas — muat ulang manual jika sudah bayar.' });
+        return;
+      }
+      try {
+        // Pemeriksaan lewat SERVER (/api/pembayaran/cek): bertanya ulang
+        // status ke Mayar dan menandai lunas bila "paid" + jumlah cocok —
+        // melengkapi webhook yang tak terjangkau saat dev di localhost.
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch('/api/pembayaran/cek', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token ?? ''}`,
+          },
+          body: JSON.stringify({ tagihan_id: idTagihan }),
+        });
+        const body = (await res.json().catch(() => null)) as
+          | { lunas?: boolean; tercatat?: boolean; pesan?: string; dibayar_online_at?: string | null }
+          | null;
+        if (!res.ok || !body) return; // gagal sekali → coba lagi pada tick berikutnya
+        if (body.lunas || body.tercatat) {
+          if (interval) clearInterval(interval);
+          setPollingTagihan(null);
+          await dataStore.loadFromSupabase();
+          setInvoices(dataStore.getInvoices());
+          const waktu = body.dibayar_online_at
+            ? new Date(body.dibayar_online_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })
+            : '';
+          setLunasOnline({ id: idTagihan, waktu });
+          const sambungan = waktu ? ` dibayar ${waktu}` : '';
+          setMessage({
+            type: 'success',
+            text: body.pesan
+              ? `${body.pesan}${waktu && !body.pesan.includes(waktu) ? sambungan : ''}`
+              : `Pembayaran online terkonfirmasi — tagihan berstatus Lunas${sambungan}.`,
+          });
+        }
+      } catch {
+        // diamkan: tick berikutnya akan mencoba ulang
+      }
+    };
+
+    interval = setInterval(periksa, 5000);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [pollingTagihan]);
 
   const handleRefreshStatus = async () => {
     try {
@@ -221,14 +338,14 @@ export const Invoices: React.FC = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'lunas':
-        return <span className="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Lunas</span>;
+        return <Badge variant="emerald">Lunas</Badge>;
       case 'sebagian':
-        return <span className="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Sebagian</span>;
+        return <Badge variant="amber">Sebagian</Badge>;
       case 'belum_bayar':
-        return <span className="bg-rose-100 text-rose-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Belum Bayar</span>;
+        return <Badge variant="rose">Belum Bayar</Badge>;
       case 'dibatalkan':
       default:
-        return <span className="bg-slate-200 text-slate-700 text-xs font-semibold px-2.5 py-0.5 rounded-full">Dibatalkan</span>;
+        return <Badge variant="muted">Dibatalkan</Badge>;
     }
   };
 
@@ -349,20 +466,41 @@ export const Invoices: React.FC = () => {
                   <td className="py-3.5 px-4 font-bold text-slate-900">
                     {formatRupiah(inv.sisa_tagihan || 0)}
                   </td>
-                  <td className="py-3.5 px-4">{getStatusBadge(inv.status)}</td>
+                  <td className="py-3.5 px-4">
+                    {getStatusBadge(inv.status)}
+                    {inv.status === 'lunas' && inv.dibayar_online_at && (
+                      <div className="text-[10px] text-slate-500 mt-1 whitespace-nowrap">
+                        dibayar{' '}
+                        {new Date(inv.dibayar_online_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
+                      </div>
+                    )}
+                    {inv.status === 'lunas' && lunasOnline?.id === inv.id && lunasOnline.waktu && !inv.dibayar_online_at && (
+                      <div className="text-[10px] text-slate-500 mt-1 whitespace-nowrap">dibayar {lunasOnline.waktu}</div>
+                    )}
+                    {pollingTagihan === inv.id && inv.status !== 'lunas' && (
+                      <div className="text-[10px] text-emerald-700 font-semibold mt-1 flex items-center gap-1 whitespace-nowrap">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Menunggu pembayaran...
+                      </div>
+                    )}
+                  </td>
                   <td className="py-3.5 px-4 text-right">
                     <div className="flex items-center justify-end gap-1.5">
-                      {/* Penyewa: Bayar Online via Mayar (US-06) */}
-                      {role === 'penyewa' && inv.status !== 'lunas' && inv.status !== 'dibatalkan' && (
+                      {/* Bayar Online via API Mayar V2 — semua role; penyewa yang tertolak 403 otomatis membuka modal US-06 */}
+                      {inv.status !== 'lunas' && inv.status !== 'dibatalkan' && (
                         <button
-                          onClick={() => {
-                            setOnlinePayInvoice(inv);
-                            setOnlinePayError(null);
-                            setOnlinePayResult(null);
-                          }}
-                          className="px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold shadow-sm transition-colors flex items-center gap-1"
+                          onClick={() => handleBayarOnline(inv)}
+                          disabled={isMembuatLink !== null}
+                          className="px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold shadow-sm transition-colors flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
                         >
-                          <CreditCard className="w-3.5 h-3.5" /> Bayar Online
+                          {isMembuatLink === inv.id ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Membuat tautan...
+                            </>
+                          ) : (
+                            <>
+                              <CreditCard className="w-3.5 h-3.5" /> Bayar Online
+                            </>
+                          )}
                         </button>
                       )}
 
@@ -397,6 +535,17 @@ export const Invoices: React.FC = () => {
                   </td>
                 </tr>
               ))}
+              {filteredInvoices.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="py-2 px-4">
+                    <EmptyState
+                      icon={Receipt}
+                      title="Belum Ada Tagihan"
+                      description="Tidak ada tagihan untuk periode yang dipilih. Tagihan bulanan akan muncul setelah dibuat oleh pengelola."
+                    />
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

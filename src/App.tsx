@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { SkeletonLoadingPage } from './components/ui/Skeleton';
 import { Dashboard } from './views/Dashboard';
 import { Units } from './views/Units';
 import { Tenants } from './views/Tenants';
@@ -13,6 +14,7 @@ import { DamageReports } from './views/DamageReports';
 import { Reports } from './views/Reports';
 import { AuditLogPage } from './views/AuditLogPage';
 import { RoleManagement } from './views/RoleManagement';
+import { Settings } from './views/Settings';
 import { TenantIdentity } from './views/TenantIdentity';
 import { Login } from './views/Login';
 import { Register } from './views/Register';
@@ -21,11 +23,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, isLoading } = useAuth();
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
+    return <SkeletonLoadingPage />;
   }
 
   if (!currentUser) {
@@ -169,6 +167,18 @@ export const App: React.FC = () => {
               <Layout>
                 <ProtectedRoute allowedRoles={['pemilik']}>
                   <RoleManagement />
+                </ProtectedRoute>
+              </Layout>
+            }
+          />
+
+          {/* Setelan Sistem (Payment Gateway dsb.): Khusus Pemilik */}
+          <Route
+            path="/setelan"
+            element={
+              <Layout>
+                <ProtectedRoute allowedRoles={['pemilik']}>
+                  <Settings />
                 </ProtectedRoute>
               </Layout>
             }

@@ -4,6 +4,8 @@ import { dataStore } from '../api/data-service';
 import { Unit, UnitStatus } from '../types/database';
 import { formatRupiah } from '../utils/business-rules';
 import { ModalErrorAlert } from '../components/ModalErrorAlert';
+import { Badge } from '../components/ui/Badge';
+import { EmptyState } from '../components/ui/EmptyState';
 import { parseErrorMessage } from '../utils/error-handler';
 import { Building2, Edit2, AlertCircle, CheckCircle2, Shield } from 'lucide-react';
 
@@ -58,14 +60,14 @@ export const Units: React.FC = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'tersedia':
-        return <span className="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-1 rounded-full">Tersedia</span>;
+        return <Badge variant="emerald" className="py-1">Tersedia</Badge>;
       case 'dikontrak':
-        return <span className="bg-indigo-100 text-indigo-800 text-xs font-semibold px-2.5 py-1 rounded-full">Dikontrak</span>;
+        return <Badge variant="indigo" className="py-1">Dikontrak</Badge>;
       case 'perbaikan':
-        return <span className="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-1 rounded-full">Perbaikan</span>;
+        return <Badge variant="amber" className="py-1">Perbaikan</Badge>;
       case 'nonaktif':
       default:
-        return <span className="bg-slate-200 text-slate-700 text-xs font-semibold px-2.5 py-1 rounded-full">Nonaktif</span>;
+        return <Badge variant="muted" className="py-1">Nonaktif</Badge>;
     }
   };
 
@@ -142,6 +144,14 @@ export const Units: React.FC = () => {
 
       {/* Grid Unit Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {filteredUnits.length === 0 && (
+          <EmptyState
+            icon={Building2}
+            title="Belum Ada Unit"
+            description="Tidak ada unit pada lantai yang dipilih."
+            className="sm:col-span-2 md:col-span-3 lg:col-span-4"
+          />
+        )}
         {filteredUnits.map((u) => (
           <div
             key={u.id}

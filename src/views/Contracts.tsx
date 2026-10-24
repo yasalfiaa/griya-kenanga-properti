@@ -4,6 +4,8 @@ import { dataStore } from '../api/data-service';
 import { Kontrak, Unit, Profile } from '../types/database';
 import { formatRupiah, calculateContractEndDate, isContractOverlapping } from '../utils/business-rules';
 import { ModalErrorAlert } from '../components/ModalErrorAlert';
+import { Badge } from '../components/ui/Badge';
+import { EmptyState } from '../components/ui/EmptyState';
 import { parseErrorMessage } from '../utils/error-handler';
 import {
   FileText,
@@ -183,15 +185,15 @@ export const Contracts: React.FC = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'aktif':
-        return <span className="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Aktif</span>;
+        return <Badge variant="emerald">Aktif</Badge>;
       case 'draf':
-        return <span className="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Draf</span>;
+        return <Badge variant="amber">Draf</Badge>;
       case 'selesai':
-        return <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Selesai</span>;
+        return <Badge variant="blue">Selesai</Badge>;
       case 'diakhiri':
-        return <span className="bg-rose-100 text-rose-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Diakhiri Pemilik</span>;
+        return <Badge variant="rose">Diakhiri Pemilik</Badge>;
       default:
-        return <span className="bg-slate-100 text-slate-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">{status}</span>;
+        return <Badge variant="slate">{status}</Badge>;
     }
   };
 
@@ -334,6 +336,17 @@ export const Contracts: React.FC = () => {
                   </td>
                 </tr>
               ))}
+              {filteredContracts.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-2 px-4">
+                    <EmptyState
+                      icon={FileText}
+                      title="Belum Ada Kontrak"
+                      description="Belum ada kontrak sewa pada status yang dipilih. Buat kontrak baru dari unit yang tersedia untuk memulai."
+                    />
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

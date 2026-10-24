@@ -4,6 +4,8 @@ import { dataStore } from '../api/data-service';
 import { maskNIK } from '../utils/business-rules';
 import { getSignedImageUrl, STORAGE_BUCKETS, isHttpUrl } from '../api/storage';
 import { ModalErrorAlert } from '../components/ModalErrorAlert';
+import { Badge } from '../components/ui/Badge';
+import { EmptyState } from '../components/ui/EmptyState';
 import { parseErrorMessage } from '../utils/error-handler';
 import {
   Users,
@@ -92,22 +94,22 @@ export const Tenants: React.FC = () => {
     switch (status) {
       case 'terverifikasi':
         return (
-          <span className="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
+          <Badge variant="emerald" className="inline-flex items-center gap-1">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Terverifikasi
-          </span>
+          </Badge>
         );
       case 'ditolak':
         return (
-          <span className="bg-rose-100 text-rose-800 text-xs font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
+          <Badge variant="rose" className="inline-flex items-center gap-1">
             <XCircle className="w-3.5 h-3.5 text-rose-600" /> Ditolak
-          </span>
+          </Badge>
         );
       case 'belum':
       default:
         return (
-          <span className="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
+          <Badge variant="amber" className="inline-flex items-center gap-1">
             <AlertCircle className="w-3.5 h-3.5 text-amber-600" /> Belum Diverifikasi
-          </span>
+          </Badge>
         );
     }
   };
@@ -228,6 +230,17 @@ export const Tenants: React.FC = () => {
                   )}
                 </tr>
               ))}
+              {tenants.length === 0 && (
+                <tr>
+                  <td colSpan={role === 'pengelola' ? 6 : 5} className="py-2 px-4">
+                    <EmptyState
+                      icon={Users}
+                      title="Belum Ada Penyewa"
+                      description="Data penyewa muncul di sini setelah ada akun penyewa terdaftar pada sistem."
+                    />
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

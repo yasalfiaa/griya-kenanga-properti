@@ -12,6 +12,8 @@ import {
   STORAGE_BUCKETS,
 } from '../api/storage';
 import { ModalErrorAlert } from '../components/ModalErrorAlert';
+import { Badge } from '../components/ui/Badge';
+import { EmptyState } from '../components/ui/EmptyState';
 import { parseErrorMessage } from '../utils/error-handler';
 import {
   Wrench,
@@ -202,17 +204,17 @@ export const DamageReports: React.FC = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'dilaporkan':
-        return <span className="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Dilaporkan</span>;
+        return <Badge variant="amber">Dilaporkan</Badge>;
       case 'menunggu_persetujuan':
-        return <span className="bg-purple-100 text-purple-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Menunggu Persetujuan Pemilik</span>;
+        return <Badge variant="purple">Menunggu Persetujuan Pemilik</Badge>;
       case 'diproses':
-        return <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Diproses</span>;
+        return <Badge variant="blue">Diproses</Badge>;
       case 'selesai':
-        return <span className="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Selesai (Siap Ditutup)</span>;
+        return <Badge variant="emerald">Selesai (Siap Ditutup)</Badge>;
       case 'ditutup':
-        return <span className="bg-slate-200 text-slate-700 text-xs font-semibold px-2.5 py-0.5 rounded-full">Ditutup</span>;
+        return <Badge variant="muted">Ditutup</Badge>;
       default:
-        return <span className="bg-slate-100 text-slate-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">{status}</span>;
+        return <Badge variant="slate">{status}</Badge>;
     }
   };
 
@@ -263,6 +265,14 @@ export const DamageReports: React.FC = () => {
 
       {/* Grid Laporan Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredReports.length === 0 && (
+          <EmptyState
+            icon={Wrench}
+            title="Belum Ada Laporan Kerusakan"
+            description="Tidak ada laporan pada daftar ini. Laporan baru muncul setelah penyewa melaporkan kerusakan unit."
+            className="md:col-span-2 lg:col-span-3"
+          />
+        )}
         {filteredReports.map((r) => (
           <div
             key={r.id}

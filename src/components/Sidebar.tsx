@@ -13,6 +13,7 @@ import {
   UserCheck,
   CreditCard,
   UserSquare2,
+  Settings,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -103,6 +104,11 @@ export const Sidebar: React.FC = () => {
               <NavLink to="/manajemen-peran" className={navClass}>
                 <UserCheck className="w-4 h-4" />
                 <span>Pengaturan Peran</span>
+              </NavLink>
+
+              <NavLink to="/setelan" className={navClass}>
+                <Settings className="w-4 h-4" />
+                <span>Setelan</span>
               </NavLink>
             </nav>
           </div>
