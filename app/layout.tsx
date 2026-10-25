@@ -1,13 +1,10 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { Public_Sans, Geist } from 'next/font/google';
 import '../src/index.css';
+import { cn } from '@/lib/utils';
 
-// Font Inter dipindahkan dari <link> Google Fonts di index.html (Vite)
-// ke next/font agar self-hosted dan tanpa layout shift.
-const inter = Inter({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700', '800'],
-});
+const geistHeading = Geist({ subsets: ['latin'], variable: '--font-heading' });
+const publicSans = Public_Sans({ subsets: ['latin'], variable: '--font-sans' });
 
 export const metadata: Metadata = {
   // Sesuai Kebutuhan Non-Fungsional PRD: Aplikasi Internal, noindex & nofollow
@@ -24,8 +21,9 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="id">
-      <body className={`${inter.className} bg-slate-50 text-slate-900 antialiased min-h-screen`}>
+    <html lang="id" className={cn('font-sans', publicSans.variable, geistHeading.variable)}>
+      {/* Pengarsipan warna via token preset (bg-muted/50 → bergaya token di halaman-halaman root) */}
+      <body className="antialiased min-h-screen">
         {children}
       </body>
     </html>

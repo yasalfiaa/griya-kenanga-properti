@@ -1,10 +1,11 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { Navbar } from './components/Navbar';
-import { Sidebar } from './components/Sidebar';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { SkeletonLoadingPage } from './components/ui/Skeleton';
+import { SkeletonLoadingPage } from './components/ui/skeleton';
+import { SidebarInset, SidebarProvider } from './components/ui/sidebar';
+import { AppSidebar } from './components/ui/app-sidebar';
+import { AppHeader } from './components/ui/app-header';
 import { Dashboard } from './views/Dashboard';
 import { Units } from './views/Units';
 import { Tenants } from './views/Tenants';
@@ -31,15 +32,16 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Navbar />
-      <div className="flex-1 flex max-w-7xl w-full mx-auto">
-        <Sidebar />
-        <main className="flex-1 p-6 md:p-8 overflow-y-auto max-w-5xl">
-          {children}
-        </main>
-      </div>
-    </div>
+    <SidebarProvider>
+      <AppSidebar />
+      {/* min-w-0: inset adalah flex item — tanpa ini lebar konten bisa menolak
+          menyusut di tablet dan memakan padding kanan (catatan referensi app-1). */}
+      <SidebarInset className="min-w-0">
+        <AppHeader />
+        {/* Header yang sama dipakai beranda semua peran (toggle + salam + avatar) */}
+        <main className="flex-1 w-full p-4 sm:p-6 md:p-8">{children}</main>
+      </SidebarInset>
+    </SidebarProvider>
   );
 };
 

@@ -223,10 +223,10 @@ export const DamageReports: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <Wrench className="w-6 h-6 text-emerald-600" /> Laporan Kerusakan & Perbaikan Unit
+          <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
+            <Wrench className="w-6 h-6 text-primary" /> Laporan Kerusakan & Perbaikan Unit
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             Biaya di atas Rp1.000.000 wajib persetujuan Pemilik. Maksimal 3 laporan terbuka per penyewa.
           </p>
         </div>
@@ -235,7 +235,7 @@ export const DamageReports: React.FC = () => {
         {role === 'penyewa' && (
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-sm transition-colors"
+            className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-sm transition-colors"
           >
             <Plus className="w-4 h-4" /> Buat Laporan Kerusakan
           </button>
@@ -252,7 +252,7 @@ export const DamageReports: React.FC = () => {
           }`}
         >
           {message.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-600" />
+            <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-primary" />
           ) : (
             <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-600" />
           )}
@@ -276,35 +276,35 @@ export const DamageReports: React.FC = () => {
         {filteredReports.map((r) => (
           <div
             key={r.id}
-            className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col justify-between space-y-4"
+            className="bg-card rounded-2xl border border-border p-5 shadow-sm flex flex-col justify-between space-y-4"
           >
             <div className="space-y-2">
               <div className="flex justify-between items-start">
-                <span className="font-mono text-xs font-bold text-slate-700">{r.nomor}</span>
+                <span className="font-mono text-xs font-bold text-foreground">{r.nomor}</span>
                 {getStatusBadge(r.status)}
               </div>
 
               <div>
-                <h3 className="font-bold text-slate-900 text-sm">{r.judul}</h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Unit: <span className="font-semibold text-slate-700">{r.unit?.kode}</span> · Pelapor: {r.pelapor?.nama_lengkap}
+                <h3 className="font-bold text-foreground text-sm">{r.judul}</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Unit: <span className="font-semibold text-foreground">{r.unit?.kode}</span> · Pelapor: {r.pelapor?.nama_lengkap}
                 </p>
               </div>
 
               {r.deskripsi && (
-                <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                <p className="text-xs text-muted-foreground bg-muted/50 p-2.5 rounded-xl border border-border">
                   {r.deskripsi}
                 </p>
               )}
 
-              <div className="text-xs text-slate-500 space-y-1 pt-2">
+              <div className="text-xs text-muted-foreground space-y-1 pt-2">
                 <div className="flex justify-between">
                   <span>Kategori:</span>
-                  <span className="font-medium text-slate-700 capitalize">{r.kategori}</span>
+                  <span className="font-medium text-foreground capitalize">{r.kategori}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Foto Terlampir:</span>
-                  <span className="text-emerald-700 font-medium">{r.foto_paths?.length || 1} Foto (JPG/PNG)</span>
+                  <span className="text-primary font-medium">{r.foto_paths?.length || 1} Foto (JPG/PNG)</span>
                 </div>
                 {isHttpUrl(r.foto_paths?.[0]) && (
                   <div className="grid grid-cols-3 gap-1.5 pt-1">
@@ -313,7 +313,7 @@ export const DamageReports: React.FC = () => {
                         <img
                           src={url}
                           alt={`Foto kerusakan ${i + 1}`}
-                          className="w-full h-16 object-cover rounded-lg border border-slate-200 hover:opacity-80 transition-opacity"
+                          className="w-full h-16 object-cover rounded-lg border border-border hover:opacity-80 transition-opacity"
                         />
                       </a>
                     ))}
@@ -322,20 +322,20 @@ export const DamageReports: React.FC = () => {
                 {r.estimasi_biaya && (
                   <div className="flex justify-between">
                     <span>Estimasi Biaya:</span>
-                    <span className="font-semibold text-slate-900">{formatRupiah(r.estimasi_biaya)}</span>
+                    <span className="font-semibold text-foreground">{formatRupiah(r.estimasi_biaya)}</span>
                   </div>
                 )}
                 {r.biaya_aktual && (
                   <div className="flex justify-between">
                     <span>Biaya Aktual:</span>
-                    <span className="font-bold text-emerald-700">{formatRupiah(r.biaya_aktual)}</span>
+                    <span className="font-bold text-primary">{formatRupiah(r.biaya_aktual)}</span>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+            <div className="pt-3 border-t border-border flex items-center justify-end gap-2">
               {/* Pengelola: Input Estimasi Biaya */}
               {role === 'pengelola' && r.status === 'dilaporkan' && (
                 <button
@@ -343,7 +343,7 @@ export const DamageReports: React.FC = () => {
                     setProcessingReport(r);
                     setEstimasiBiaya(100000);
                   }}
-                  className="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold shadow-sm"
+                  className="px-3 py-1.5 text-xs bg-primary hover:bg-primary/90 text-white rounded-lg font-semibold shadow-sm"
                 >
                   Proses & Isi Biaya
                 </button>
@@ -363,7 +363,7 @@ export const DamageReports: React.FC = () => {
               {['diproses', 'selesai'].includes(r.status) && (
                 <button
                   onClick={() => handleCloseReport(r)}
-                  className="px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold"
+                  className="px-3 py-1.5 text-xs bg-muted hover:bg-border text-foreground rounded-lg font-semibold"
                 >
                   Tutup Laporan
                 </button>
@@ -375,12 +375,12 @@ export const DamageReports: React.FC = () => {
 
       {/* Modal Buat Laporan Kerusakan (Penyewa) */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
-            <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
-              <Wrench className="w-5 h-5 text-emerald-600" /> Buat Laporan Kerusakan Kamar
+        <div className="fixed inset-0 bg-foreground/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <h3 className="font-bold text-foreground text-lg flex items-center gap-2">
+              <Wrench className="w-5 h-5 text-primary" /> Buat Laporan Kerusakan Kamar
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               Lampirkan 1 sampai 3 foto bukti kerusakan (format JPG/PNG). Maksimal 3 laporan kerusakan terbuka per penyewa.
             </p>
 
@@ -392,11 +392,11 @@ export const DamageReports: React.FC = () => {
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">Kategori Kerusakan</label>
+                <label className="text-xs font-semibold text-foreground block mb-1">Kategori Kerusakan</label>
                 <select
                   value={kategori}
                   onChange={(e) => setKategori(e.target.value)}
-                  className="w-full text-xs border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full text-xs border border-border rounded-xl px-3 py-2 focus:ring-2 focus:ring-ring focus:outline-none"
                 >
                   <option value="air">Sanitasi / Pipa Air</option>
                   <option value="listrik">Listrik & Lampu</option>
@@ -407,7 +407,7 @@ export const DamageReports: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">Judul Kerusakan</label>
+                <label className="text-xs font-semibold text-foreground block mb-1">Judul Kerusakan</label>
                 <input
                   type="text"
                   value={judul}
@@ -416,23 +416,23 @@ export const DamageReports: React.FC = () => {
                     if (createModalError) setCreateModalError(null);
                   }}
                   placeholder="Contoh: Keran wastafel patah dan bocor"
-                  className="w-full text-xs border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full text-xs border border-border rounded-xl px-3 py-2 focus:ring-2 focus:ring-ring focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">Deskripsi Detail</label>
+                <label className="text-xs font-semibold text-foreground block mb-1">Deskripsi Detail</label>
                 <textarea
                   rows={2}
                   value={deskripsi}
                   onChange={(e) => setDeskripsi(e.target.value)}
                   placeholder="Jelaskan kondisi kerusakan agar staf dapat menyiapkan suku cadang yang tepat..."
-                  className="w-full text-xs border border-slate-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full text-xs border border-border rounded-xl p-2.5 focus:ring-2 focus:ring-ring focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                <label className="text-xs font-semibold text-foreground block mb-1">
                   Foto Bukti Kerusakan (1 - 3 Foto, JPG/PNG/WEBP, Maks {MAX_IMAGE_SIZE_MB}MB per foto)
                 </label>
                 <input
@@ -440,7 +440,7 @@ export const DamageReports: React.FC = () => {
                   multiple
                   accept={ACCEPTED_IMAGE_ATTR}
                   onChange={handleFilesSelect}
-                  className="w-full text-xs text-slate-600 border border-slate-300 rounded-xl px-3 py-2 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-emerald-600 file:text-white file:text-xs file:font-semibold file:cursor-pointer hover:file:bg-emerald-700 cursor-pointer bg-white"
+                  className="w-full text-xs text-muted-foreground border border-border rounded-xl px-3 py-2 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-primary file:text-white file:text-xs file:font-semibold file:cursor-pointer hover:file:bg-primary/90 cursor-pointer bg-card"
                   aria-label="Pilih foto bukti kerusakan"
                 />
                 {fotoError && (
@@ -455,7 +455,7 @@ export const DamageReports: React.FC = () => {
                         <img
                           src={url}
                           alt={`Pratinjau foto ${idx + 1}`}
-                          className="w-full h-20 object-cover rounded-lg border border-slate-200"
+                          className="w-full h-20 object-cover rounded-lg border border-border"
                         />
                         <button
                           type="button"
@@ -465,7 +465,7 @@ export const DamageReports: React.FC = () => {
                             setFotoPreviews(prev => prev.filter((_, i) => i !== idx));
                           }}
                           title="Hapus foto ini"
-                          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-slate-900/70 text-white text-[10px] flex items-center justify-center hover:bg-rose-600 transition-colors"
+                          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-foreground/70 text-white text-[10px] flex items-center justify-center hover:bg-rose-600 transition-colors"
                         >
                           ✕
                         </button>
@@ -473,7 +473,7 @@ export const DamageReports: React.FC = () => {
                     ))}
                   </div>
                 )}
-                <p className="mt-1 text-[11px] text-slate-400">
+                <p className="mt-1 text-[11px] text-muted-foreground">
                   {fotoFiles.length} dari 3 foto dipilih
                 </p>
               </div>
@@ -486,14 +486,14 @@ export const DamageReports: React.FC = () => {
                   resetFotoInputs();
                   setCreateModalError(null);
                 }}
-                className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-xl font-medium"
               >
                 Batal
               </button>
               <button
                 onClick={handleCreateReport}
                 disabled={isSavingReport}
-                className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-wait text-white rounded-xl font-semibold shadow-sm"
+                className="px-4 py-2 text-sm bg-primary hover:bg-primary/90 disabled:opacity-60 disabled:cursor-wait text-white rounded-xl font-semibold shadow-sm"
               >
                 {isSavingReport ? 'Mengunggah foto...' : 'Kirim Laporan'}
               </button>
@@ -504,10 +504,10 @@ export const DamageReports: React.FC = () => {
 
       {/* Modal Proses Laporan (Pengelola) */}
       {processingReport && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
-            <h3 className="font-bold text-slate-900 text-lg">Proses Laporan {processingReport.nomor}</h3>
-            <p className="text-xs text-slate-500">
+        <div className="fixed inset-0 bg-foreground/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <h3 className="font-bold text-foreground text-lg">Proses Laporan {processingReport.nomor}</h3>
+            <p className="text-xs text-muted-foreground">
               Estimasi biaya di atas Rp1.000.000 wajib disetujui Pemilik sebelum dikerjakan. Estimasi hingga Rp1.000.000 dapat langsung diproses.
             </p>
 
@@ -518,7 +518,7 @@ export const DamageReports: React.FC = () => {
             />
 
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">
+              <label className="text-xs font-semibold text-foreground block mb-1">
                 Estimasi Biaya Perbaikan (Rp)
               </label>
               <input
@@ -529,7 +529,7 @@ export const DamageReports: React.FC = () => {
                   setEstimasiBiaya(Number(e.target.value));
                   if (processModalError) setProcessModalError(null);
                 }}
-                className="w-full text-sm font-semibold border border-slate-300 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="w-full text-sm font-semibold border border-border rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-ring focus:outline-none"
               />
             </div>
 
@@ -539,13 +539,13 @@ export const DamageReports: React.FC = () => {
                   setProcessingReport(null);
                   setProcessModalError(null);
                 }}
-                className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-xl font-medium"
               >
                 Batal
               </button>
               <button
                 onClick={handleProcessReport}
-                className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold shadow-sm"
+                className="px-4 py-2 text-sm bg-primary hover:bg-primary/90 text-white rounded-xl font-semibold shadow-sm"
               >
                 Simpan & Lanjutkan
               </button>

@@ -40,22 +40,22 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-muted/50 flex items-center justify-center p-4">
       <div className="max-w-md w-full space-y-6">
         {/* Brand */}
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 mx-auto flex items-center justify-center text-white shadow-md shadow-emerald-200">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-primary to-primary/70 mx-auto flex items-center justify-center text-white shadow-md shadow-primary/20">
             <Home className="w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-            Griya Kenanga <span className="text-emerald-600">Residence</span>
+          <h1 className="text-2xl font-extrabold text-foreground tracking-tight">
+            Griya Kenanga <span className="text-primary">Residence</span>
           </h1>
-          <p className="text-xs text-slate-500">Sistem Internal Manajemen Properti & Sewa Unit</p>
+          <p className="text-xs text-muted-foreground">Sistem Internal Manajemen Properti & Sewa Unit</p>
         </div>
 
         {/* Login Form */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-5">
-          <h2 className="text-base font-bold text-slate-800">Masuk ke Akun Anda</h2>
+        <div className="bg-card rounded-2xl border border-border p-6 shadow-sm space-y-5">
+          <h2 className="text-base font-bold text-foreground">Masuk ke Akun Anda</h2>
 
           {error && (
             <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs">
@@ -65,28 +65,28 @@ export const Login: React.FC = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">Alamat Email</label>
+              <label className="text-xs font-semibold text-foreground block mb-1">Alamat Email</label>
               <div className="relative">
-                <Mail className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                <Mail className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full text-xs border border-slate-300 rounded-xl pl-9 pr-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full text-xs border border-border rounded-xl pl-9 pr-3 py-2.5 focus:ring-2 focus:ring-ring focus:outline-none"
                   required
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">Kata Sandi</label>
+              <label className="text-xs font-semibold text-foreground block mb-1">Kata Sandi</label>
               <div className="relative">
-                <Lock className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                <Lock className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full text-xs border border-slate-300 rounded-xl pl-9 pr-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full text-xs border border-border rounded-xl pl-9 pr-3 py-2.5 focus:ring-2 focus:ring-ring focus:outline-none"
                   required
                 />
               </div>
@@ -94,15 +94,15 @@ export const Login: React.FC = () => {
 
             <button
               type="submit"
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-4 rounded-xl shadow-sm transition-colors text-xs flex items-center justify-center gap-1.5"
+              className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-2.5 px-4 rounded-xl shadow-sm transition-colors text-xs flex items-center justify-center gap-1.5"
             >
               Masuk Sekarang <ArrowRight className="w-4 h-4" />
             </button>
           </form>
 
           {/* Quick Demo Test Buttons */}
-          <div className="pt-4 border-t border-slate-100 space-y-2">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+          <div className="pt-4 border-t border-border space-y-2">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
               Akses Cepat Akun Uji (Password: Latihan#2026):
             </span>
             <div className="grid grid-cols-2 gap-2 text-xs">
@@ -138,9 +138,9 @@ export const Login: React.FC = () => {
           </div>
         </div>
 
-        <div className="text-center text-xs text-slate-500">
+        <div className="text-center text-xs text-muted-foreground">
           Belum punya akun?{' '}
-          <Link to="/register" className="text-emerald-600 font-semibold hover:underline">
+          <Link to="/register" className="text-primary font-semibold hover:underline">
             Daftar Akun Baru
           </Link>
         </div>

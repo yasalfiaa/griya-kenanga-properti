@@ -1,34 +1,32 @@
-/**
- * Skeleton — indikator pemuatan berbentuk blok berdenyut (shimmer pulse),
- * pengganti spinner polos bila halaman sedang menunggu data.
- */
-import React from 'react';
-import { cn } from '../../utils/cn';
+import * as React from "react"
+import { cn } from "cn"
 
-export interface SkeletonProps {
-  className?: string;
+function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="skeleton"
+      className={cn("animate-pulse rounded-md bg-muted", className)}
+      {...props}
+    />
+  )
 }
-
-export const Skeleton: React.FC<SkeletonProps> = ({ className }) => {
-  return <div className={cn('animate-pulse rounded-xl bg-slate-200', className)} />;
-};
 
 /**
  * SkeletonLoadingPage — skeleton layar penuh saat sesi/otentikasi dicek
- * (menggantikan lingkaran spinner di belakang aplikasi).
+ * (dipakai oleh src/App.tsx), langkah Fase 1 pembenahan UI yang dipertahankan.
  */
 export const SkeletonLoadingPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-slate-50 flex">
-      {/* Sidang sidebar */}
-      <div className="hidden md:block w-60 border-r border-slate-200 bg-white p-5 space-y-3">
+    <div className="min-h-screen bg-background flex">
+      {/* Siluet sidebar */}
+      <div className="hidden md:block w-60 border-r border-border bg-sidebar p-5 space-y-3">
         <Skeleton className="h-9 w-9 rounded-xl" />
         <Skeleton className="h-3 w-32" />
         {Array.from({ length: 6 }).map((_, i) => (
           <Skeleton key={i} className="h-8 w-full rounded-lg" />
         ))}
       </div>
-      {/* Sidang konten */}
+      {/* Siluet konten */}
       <div className="flex-1 p-6 md:p-8 space-y-5">
         <Skeleton className="h-7 w-56" />
         <Skeleton className="h-3 w-72" />
@@ -42,3 +40,5 @@ export const SkeletonLoadingPage: React.FC = () => {
     </div>
   );
 };
+
+export { Skeleton }

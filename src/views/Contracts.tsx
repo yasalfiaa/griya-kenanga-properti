@@ -202,10 +202,10 @@ export const Contracts: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <FileText className="w-6 h-6 text-emerald-600" /> Pengelolaan Kontrak Sewa
+          <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
+            <FileText className="w-6 h-6 text-primary" /> Pengelolaan Kontrak Sewa
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             Penegakan aturan kontrak tunggal, tanggal mulai tanggal 1, dan pencegahan overlap tanggal sewa.
           </p>
         </div>
@@ -216,7 +216,7 @@ export const Contracts: React.FC = () => {
               setModalSubmitError(null);
               setShowCreateModal(true);
             }}
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-sm transition-colors"
+            className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-sm transition-colors"
           >
             <Plus className="w-4 h-4" /> Buat Kontrak Baru
           </button>
@@ -233,7 +233,7 @@ export const Contracts: React.FC = () => {
           }`}
         >
           {message.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-600" />
+            <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-primary" />
           ) : (
             <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-600" />
           )}
@@ -245,15 +245,15 @@ export const Contracts: React.FC = () => {
       )}
 
       {/* Filter Tabs */}
-      <div className="flex gap-2 border-b border-slate-200 pb-2 text-xs font-semibold">
+      <div className="flex gap-2 border-b border-border pb-2 text-xs font-semibold">
         {['all', 'aktif', 'draf', 'selesai', 'diakhiri'].map((st) => (
           <button
             key={st}
             onClick={() => setFilterStatus(st)}
             className={`px-3 py-1.5 rounded-lg capitalize transition-colors ${
               filterStatus === st
-                ? 'bg-slate-900 text-white'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                ? 'bg-foreground text-white'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
             }`}
           >
             {st === 'all' ? 'Semua Kontrak' : st}
@@ -262,10 +262,10 @@ export const Contracts: React.FC = () => {
       </div>
 
       {/* Tabel Kontrak */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          <table className="w-full text-left text-sm text-muted-foreground">
+            <thead className="bg-muted/50 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               <tr>
                 <th className="py-3.5 px-4">Nomor & Unit</th>
                 <th className="py-3.5 px-4">Penyewa</th>
@@ -275,26 +275,26 @@ export const Contracts: React.FC = () => {
                 <th className="py-3.5 px-4 text-right">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-border">
               {filteredContracts.map((k) => (
-                <tr key={k.id} className="hover:bg-slate-50/70 transition-colors">
+                <tr key={k.id} className="hover:bg-muted/60 transition-colors">
                   <td className="py-3.5 px-4">
-                    <div className="font-semibold text-slate-900">{k.nomor}</div>
-                    <div className="text-xs text-slate-500">
-                      Kamar: <span className="font-semibold text-emerald-700">{k.unit?.kode}</span> ({k.unit?.tipe})
+                    <div className="font-semibold text-foreground">{k.nomor}</div>
+                    <div className="text-xs text-muted-foreground">
+                      Kamar: <span className="font-semibold text-primary">{k.unit?.kode}</span> ({k.unit?.tipe})
                     </div>
                   </td>
                   <td className="py-3.5 px-4">
-                    <div className="font-medium text-slate-800">{k.penyewa?.nama_lengkap}</div>
-                    <div className="text-xs text-slate-400">{k.penyewa?.email}</div>
+                    <div className="font-medium text-foreground">{k.penyewa?.nama_lengkap}</div>
+                    <div className="text-xs text-muted-foreground">{k.penyewa?.email}</div>
                   </td>
                   <td className="py-3.5 px-4 text-xs">
-                    <div className="font-medium text-slate-700">
+                    <div className="font-medium text-foreground">
                       {k.tanggal_mulai} s/d {k.tanggal_selesai}
                     </div>
-                    <div className="text-slate-400">Durasi: {k.durasi_bulan} Bulan</div>
+                    <div className="text-muted-foreground">Durasi: {k.durasi_bulan} Bulan</div>
                   </td>
-                  <td className="py-3.5 px-4 font-semibold text-slate-800">
+                  <td className="py-3.5 px-4 font-semibold text-foreground">
                     {formatRupiah(k.harga_sewa_bulanan)}
                   </td>
                   <td className="py-3.5 px-4">
@@ -312,7 +312,7 @@ export const Contracts: React.FC = () => {
                         <button
                           onClick={() => handleActivateContract(k)}
                           disabled={activatingId === k.id}
-                          className="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-wait text-white rounded-lg font-semibold shadow-sm transition-colors flex items-center gap-1"
+                          className="px-3 py-1.5 text-xs bg-primary hover:bg-primary/90 disabled:opacity-60 disabled:cursor-wait text-white rounded-lg font-semibold shadow-sm transition-colors flex items-center gap-1"
                         >
                           {activatingId === k.id && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                           {activatingId === k.id ? 'Mengaktifkan...' : 'Aktivasi'}
@@ -354,13 +354,13 @@ export const Contracts: React.FC = () => {
 
       {/* Modal Buat Kontrak Baru (Pengelola) */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4">
+        <div className="fixed inset-0 bg-foreground/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4">
             <div>
-              <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
-                <FileText className="w-5 h-5 text-emerald-600" /> Buat Kontrak Sewa Baru
+              <h3 className="font-bold text-foreground text-lg flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary" /> Buat Kontrak Sewa Baru
               </h3>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Hanya unit berstatus tersedia yang dapat dipilih, tanggal mulai sewa harus selalu tanggal 1 di awal bulan, dan periode sewa tidak boleh beririsan.
               </p>
             </div>
@@ -391,11 +391,11 @@ export const Contracts: React.FC = () => {
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">Pilih Unit (Tersedia)</label>
+                <label className="text-xs font-semibold text-foreground block mb-1">Pilih Unit (Tersedia)</label>
                 <select
                   value={selectedUnitId}
                   onChange={(e) => setSelectedUnitId(e.target.value)}
-                  className="w-full text-sm border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full text-sm border border-border rounded-xl px-3 py-2 focus:ring-2 focus:ring-ring focus:outline-none"
                 >
                   <option value="">-- Pilih Unit --</option>
                   {units.map((u) => (
@@ -407,11 +407,11 @@ export const Contracts: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">Pilih Calon Penyewa</label>
+                <label className="text-xs font-semibold text-foreground block mb-1">Pilih Calon Penyewa</label>
                 <select
                   value={selectedPenyewaId}
                   onChange={(e) => setSelectedPenyewaId(e.target.value)}
-                  className="w-full text-sm border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full text-sm border border-border rounded-xl px-3 py-2 focus:ring-2 focus:ring-ring focus:outline-none"
                 >
                   <option value="">-- Pilih Penyewa --</option>
                   {tenants.map((t) => (
@@ -424,22 +424,22 @@ export const Contracts: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  <label className="text-xs font-semibold text-foreground block mb-1">
                     Tanggal Mulai (Selalu tgl 1)
                   </label>
                   <input
                     type="date"
                     value={tanggalMulai}
                     onChange={(e) => setTanggalMulai(e.target.value)}
-                    className="w-full text-sm border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    className="w-full text-sm border border-border rounded-xl px-3 py-2 focus:ring-2 focus:ring-ring focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">Durasi Sewa</label>
+                  <label className="text-xs font-semibold text-foreground block mb-1">Durasi Sewa</label>
                   <select
                     value={durasiBulan}
                     onChange={(e) => setDurasiBulan(Number(e.target.value) as any)}
-                    className="w-full text-sm border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    className="w-full text-sm border border-border rounded-xl px-3 py-2 focus:ring-2 focus:ring-ring focus:outline-none"
                   >
                     <option value={1}>1 Bulan</option>
                     <option value={3}>3 Bulan</option>
@@ -449,9 +449,9 @@ export const Contracts: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-600">
+              <div className="bg-muted/50 border border-border rounded-xl p-3 text-xs text-muted-foreground">
                 Tanggal Selesai Otomatis:{' '}
-                <span className="font-bold text-slate-900">
+                <span className="font-bold text-foreground">
                   {calculateContractEndDate(tanggalMulai, durasiBulan)}
                 </span>
               </div>
@@ -463,7 +463,7 @@ export const Contracts: React.FC = () => {
                   setShowCreateModal(false);
                   setModalSubmitError(null);
                 }}
-                className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-xl font-medium"
               >
                 Batal
               </button>
@@ -477,7 +477,7 @@ export const Contracts: React.FC = () => {
                     ? 'Pilih unit dan calon penyewa terlebih dahulu untuk menyimpan draf kontrak'
                     : 'Simpan kontrak baru sebagai draf'
                 }
-                className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-semibold shadow-sm transition-colors flex items-center gap-2"
+                className="px-4 py-2 text-sm bg-primary hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-semibold shadow-sm transition-colors flex items-center gap-2"
               >
                 {isSavingContract && <Loader2 className="w-4 h-4 animate-spin" />}
                 {isSavingContract ? 'Menyimpan...' : 'Simpan Kontrak Draf'}
@@ -489,12 +489,12 @@ export const Contracts: React.FC = () => {
 
       {/* Modal Akhiri Lebih Awal (Pemilik) */}
       {terminatingContract && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
-            <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+        <div className="fixed inset-0 bg-foreground/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <h3 className="font-bold text-foreground text-lg flex items-center gap-2">
               <ShieldAlert className="w-5 h-5 text-rose-600" /> Akhiri Kontrak Lebih Awal
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               Pengakhiran lebih awal hanya dapat dilakukan oleh Pemilik, wajib disertai alasan yang jelas, dan berlaku efektif hingga akhir bulan berjalan.
             </p>
 
@@ -504,14 +504,14 @@ export const Contracts: React.FC = () => {
               onDismiss={() => setTerminateModalError(null)}
             />
 
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1">
+            <div className="bg-muted/50 border border-border rounded-xl p-3 text-xs space-y-1">
               <div>Nomor Kontrak: <span className="font-bold">{terminatingContract.nomor}</span></div>
               <div>Penyewa: <span className="font-bold">{terminatingContract.penyewa?.nama_lengkap}</span></div>
               <div>Unit: <span className="font-bold">{terminatingContract.unit?.kode}</span></div>
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">
+              <label className="text-xs font-semibold text-foreground block mb-1">
                 Alasan Pengakhiran Kontrak (Wajib)
               </label>
               <textarea
@@ -522,7 +522,7 @@ export const Contracts: React.FC = () => {
                   if (terminateModalError) setTerminateModalError(null);
                 }}
                 placeholder="Contoh: Penyewa pindah tugas kerja lebih awal atas kesepakatan bersama."
-                className="w-full text-xs border border-slate-300 rounded-xl p-2.5 focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                className="w-full text-xs border border-border rounded-xl p-2.5 focus:ring-2 focus:ring-rose-500 focus:outline-none"
               />
             </div>
 
@@ -532,7 +532,7 @@ export const Contracts: React.FC = () => {
                   setTerminatingContract(null);
                   setTerminateModalError(null);
                 }}
-                className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-xl font-medium"
               >
                 Batal
               </button>

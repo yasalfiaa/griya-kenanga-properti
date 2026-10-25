@@ -11,16 +11,6 @@
       "static/chunks/main-app.js",
       "static/chunks/app/[[...slug]]/page.js"
     ],
-    "/api/pembayaran/buat/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/pembayaran/buat/route.js"
-    ],
-    "/api/pembayaran/cek/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/pembayaran/cek/route.js"
-    ],
     "/api/pembayaran/status/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",

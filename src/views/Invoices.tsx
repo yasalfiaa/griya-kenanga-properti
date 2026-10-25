@@ -354,11 +354,11 @@ export const Invoices: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <Receipt className="w-6 h-6 text-emerald-600" />
+          <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
+            <Receipt className="w-6 h-6 text-primary" />
             {role === 'penyewa' ? 'Tagihan Sewa Saya' : 'Tagihan Bulanan & Kas Pembayaran'}
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             Jatuh tempo tanggal 10. Denda Rp20.000/hari (maks Rp200.000 per tagihan).
           </p>
         </div>
@@ -370,7 +370,7 @@ export const Invoices: React.FC = () => {
               setGenerateError(null);
               setShowGenerateModal(true);
             }}
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-sm transition-colors"
+            className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-sm transition-colors"
           >
             <PlusCircle className="w-4 h-4" /> Buat Tagihan Bulanan
           </button>
@@ -387,7 +387,7 @@ export const Invoices: React.FC = () => {
           }`}
         >
           {message.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-600" />
+            <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-primary" />
           ) : (
             <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-600" />
           )}
@@ -399,14 +399,14 @@ export const Invoices: React.FC = () => {
       )}
 
       {/* Filter Periode */}
-      <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl text-xs font-semibold w-fit">
-        <span className="text-slate-500 px-2">Periode Tagihan:</span>
+      <div className="flex items-center gap-2 bg-muted p-1.5 rounded-xl text-xs font-semibold w-fit">
+        <span className="text-muted-foreground px-2">Periode Tagihan:</span>
         {['2026-10', '2026-09', '2026-08', 'all'].map((p) => (
           <button
             key={p}
             onClick={() => setSelectedPeriod(p)}
             className={`px-3 py-1.5 rounded-lg transition-all ${
-              selectedPeriod === p ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              selectedPeriod === p ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {p === 'all' ? 'Semua Periode' : p}
@@ -415,10 +415,10 @@ export const Invoices: React.FC = () => {
       </div>
 
       {/* Tabel Tagihan */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          <table className="w-full text-left text-sm text-muted-foreground">
+            <thead className="bg-muted/50 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               <tr>
                 <th className="py-3.5 px-4">Nomor Invoice</th>
                 <th className="py-3.5 px-4">Penyewa & Unit</th>
@@ -431,24 +431,24 @@ export const Invoices: React.FC = () => {
                 <th className="py-3.5 px-4 text-right">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-border">
               {filteredInvoices.map((inv) => (
-                <tr key={inv.id} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="py-3.5 px-4 font-mono font-semibold text-slate-900 text-xs">
+                <tr key={inv.id} className="hover:bg-muted/60 transition-colors">
+                  <td className="py-3.5 px-4 font-mono font-semibold text-foreground text-xs">
                     {inv.nomor}
                   </td>
                   <td className="py-3.5 px-4">
-                    <div className="font-semibold text-slate-900">
+                    <div className="font-semibold text-foreground">
                       {inv.kontrak?.penyewa?.nama_lengkap || 'Penyewa'}
                     </div>
-                    <div className="text-xs text-slate-500">
-                      Kamar: <span className="font-semibold text-emerald-700">{inv.kontrak?.unit?.kode}</span>
+                    <div className="text-xs text-muted-foreground">
+                      Kamar: <span className="font-semibold text-primary">{inv.kontrak?.unit?.kode}</span>
                     </div>
                   </td>
-                  <td className="py-3.5 px-4 text-xs font-medium text-slate-700">
+                  <td className="py-3.5 px-4 text-xs font-medium text-foreground">
                     {inv.jatuh_tempo}
                   </td>
-                  <td className="py-3.5 px-4 font-medium text-slate-800">
+                  <td className="py-3.5 px-4 font-medium text-foreground">
                     {formatRupiah(inv.nominal_sewa)}
                   </td>
                   <td className="py-3.5 px-4">
@@ -457,28 +457,28 @@ export const Invoices: React.FC = () => {
                         +{formatRupiah(inv.denda)}
                       </span>
                     ) : (
-                      <span className="text-slate-400 text-xs">Rp0</span>
+                      <span className="text-muted-foreground text-xs">Rp0</span>
                     )}
                   </td>
-                  <td className="py-3.5 px-4 font-semibold text-emerald-700">
+                  <td className="py-3.5 px-4 font-semibold text-primary">
                     {formatRupiah(inv.terbayar)}
                   </td>
-                  <td className="py-3.5 px-4 font-bold text-slate-900">
+                  <td className="py-3.5 px-4 font-bold text-foreground">
                     {formatRupiah(inv.sisa_tagihan || 0)}
                   </td>
                   <td className="py-3.5 px-4">
                     {getStatusBadge(inv.status)}
                     {inv.status === 'lunas' && inv.dibayar_online_at && (
-                      <div className="text-[10px] text-slate-500 mt-1 whitespace-nowrap">
+                      <div className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">
                         dibayar{' '}
                         {new Date(inv.dibayar_online_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
                       </div>
                     )}
                     {inv.status === 'lunas' && lunasOnline?.id === inv.id && lunasOnline.waktu && !inv.dibayar_online_at && (
-                      <div className="text-[10px] text-slate-500 mt-1 whitespace-nowrap">dibayar {lunasOnline.waktu}</div>
+                      <div className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">dibayar {lunasOnline.waktu}</div>
                     )}
                     {pollingTagihan === inv.id && inv.status !== 'lunas' && (
-                      <div className="text-[10px] text-emerald-700 font-semibold mt-1 flex items-center gap-1 whitespace-nowrap">
+                      <div className="text-[10px] text-primary font-semibold mt-1 flex items-center gap-1 whitespace-nowrap">
                         <Loader2 className="w-3 h-3 animate-spin" /> Menunggu pembayaran...
                       </div>
                     )}
@@ -512,7 +512,7 @@ export const Invoices: React.FC = () => {
                             setPayAmount(inv.sisa_tagihan || 0);
                             setPayModalError(null);
                           }}
-                          className="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold shadow-sm transition-colors"
+                          className="px-3 py-1.5 text-xs bg-primary hover:bg-primary/90 text-white rounded-lg font-semibold shadow-sm transition-colors"
                         >
                           Catat Bayar
                         </button>
@@ -553,10 +553,10 @@ export const Invoices: React.FC = () => {
 
       {/* Modal Catat Pembayaran (Pengelola) */}
       {payingInvoice && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
-            <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-emerald-600" /> Catat Pembayaran Sewa
+        <div className="fixed inset-0 bg-foreground/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <h3 className="font-bold text-foreground text-lg flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-primary" /> Catat Pembayaran Sewa
             </h3>
 
             {/* Error Alert Standar Modal */}
@@ -565,32 +565,32 @@ export const Invoices: React.FC = () => {
               onDismiss={() => setPayModalError(null)}
             />
 
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1.5">
+            <div className="bg-muted/50 border border-border rounded-xl p-3 text-xs space-y-1.5">
               <div className="flex justify-between">
-                <span className="text-slate-500">Invoice:</span>
-                <span className="font-bold text-slate-800">{payingInvoice.nomor}</span>
+                <span className="text-muted-foreground">Invoice:</span>
+                <span className="font-bold text-foreground">{payingInvoice.nomor}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Penyewa:</span>
-                <span className="font-bold text-slate-800">{payingInvoice.kontrak?.penyewa?.nama_lengkap}</span>
+                <span className="text-muted-foreground">Penyewa:</span>
+                <span className="font-bold text-foreground">{payingInvoice.kontrak?.penyewa?.nama_lengkap}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Pokok Sewa:</span>
-                <span className="font-medium text-slate-800">{formatRupiah(payingInvoice.nominal_sewa)}</span>
+                <span className="text-muted-foreground">Pokok Sewa:</span>
+                <span className="font-medium text-foreground">{formatRupiah(payingInvoice.nominal_sewa)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Denda Keterlambatan:</span>
+                <span className="text-muted-foreground">Denda Keterlambatan:</span>
                 <span className="font-bold text-rose-600">{formatRupiah(payingInvoice.denda)}</span>
               </div>
-              <div className="flex justify-between pt-1 border-t border-slate-200">
-                <span className="font-semibold text-slate-700">Sisa Tagihan Saat Ini:</span>
-                <span className="font-extrabold text-emerald-700">{formatRupiah(payingInvoice.sisa_tagihan || 0)}</span>
+              <div className="flex justify-between pt-1 border-t border-border">
+                <span className="font-semibold text-foreground">Sisa Tagihan Saat Ini:</span>
+                <span className="font-extrabold text-primary">{formatRupiah(payingInvoice.sisa_tagihan || 0)}</span>
               </div>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                <label className="text-xs font-semibold text-foreground block mb-1">
                   Jumlah Pembayaran (Rp)
                 </label>
                 <input
@@ -601,46 +601,46 @@ export const Invoices: React.FC = () => {
                     setPayAmount(Number(e.target.value));
                     if (payModalError) setPayModalError(null);
                   }}
-                  className="w-full text-sm font-semibold border border-slate-300 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full text-sm font-semibold border border-border rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-ring focus:outline-none"
                 />
-                <p className="text-[11px] text-slate-500 mt-1">
+                <p className="text-[11px] text-muted-foreground mt-1">
                   Minimal Rp100.000 per cicilan (kecuali untuk melunasi sisa tagihan) dan tidak boleh melebihi sisa tagihan.
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">Metode</label>
+                  <label className="text-xs font-semibold text-foreground block mb-1">Metode</label>
                   <select
                     value={payMethod}
                     onChange={(e) => setPayMethod(e.target.value as any)}
-                    className="w-full text-xs border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    className="w-full text-xs border border-border rounded-xl px-3 py-2 focus:ring-2 focus:ring-ring focus:outline-none"
                   >
                     <option value="tunai">Tunai (Cash)</option>
                     <option value="transfer">Transfer Bank</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">Tanggal Bayar</label>
+                  <label className="text-xs font-semibold text-foreground block mb-1">Tanggal Bayar</label>
                   <input
                     type="date"
                     value={payDate}
                     onChange={(e) => setPayDate(e.target.value)}
-                    className="w-full text-xs border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    className="w-full text-xs border border-border rounded-xl px-3 py-2 focus:ring-2 focus:ring-ring focus:outline-none"
                   />
                 </div>
               </div>
 
               {payMethod === 'transfer' && (
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  <label className="text-xs font-semibold text-foreground block mb-1">
                     Lampiran Bukti Transfer (JPG/PNG/WEBP, Maks 2MB) — Wajib
                   </label>
                   <input
                     type="file"
                     accept={ACCEPTED_IMAGE_ATTR}
                     onChange={handleBuktiSelect}
-                    className="w-full text-xs text-slate-600 border border-slate-300 rounded-xl px-3 py-2 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-emerald-600 file:text-white file:text-xs file:font-semibold file:cursor-pointer hover:file:bg-emerald-700 cursor-pointer bg-white"
+                    className="w-full text-xs text-muted-foreground border border-border rounded-xl px-3 py-2 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-primary file:text-white file:text-xs file:font-semibold file:cursor-pointer hover:file:bg-primary/90 cursor-pointer bg-card"
                     aria-label="Pilih foto bukti transfer"
                   />
                   {buktiError && (
@@ -649,15 +649,15 @@ export const Invoices: React.FC = () => {
                     </p>
                   )}
                   {buktiPreview && (
-                    <div className="mt-2 flex items-center gap-3 border border-dashed border-slate-300 p-2.5 rounded-xl bg-slate-50">
+                    <div className="mt-2 flex items-center gap-3 border border-dashed border-border p-2.5 rounded-xl bg-muted/50">
                       <img
                         src={buktiPreview}
                         alt="Pratinjau bukti transfer"
-                        className="w-20 h-14 object-cover rounded-lg border border-slate-200"
+                        className="w-20 h-14 object-cover rounded-lg border border-border"
                       />
                       <div className="text-xs min-w-0 flex-1">
-                        <span className="font-semibold text-slate-800 block truncate">{buktiFile?.name}</span>
-                        <span className="text-slate-400">
+                        <span className="font-semibold text-foreground block truncate">{buktiFile?.name}</span>
+                        <span className="text-muted-foreground">
                           {buktiFile?.size ? `${(buktiFile.size / 1024).toFixed(0)} KB — siap diunggah` : ''}
                         </span>
                       </div>
@@ -676,14 +676,14 @@ export const Invoices: React.FC = () => {
                   setPayingInvoice(null);
                   setPayModalError(null);
                 }}
-                className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-xl font-medium"
               >
                 Batal
               </button>
               <button
                 onClick={handleRecordPayment}
                 disabled={isSavingPayment}
-                className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-wait text-white rounded-xl font-semibold shadow-sm"
+                className="px-4 py-2 text-sm bg-primary hover:bg-primary/90 disabled:opacity-60 disabled:cursor-wait text-white rounded-xl font-semibold shadow-sm"
               >
                 {isSavingPayment ? 'Mengunggah...' : 'Simpan Pembayaran'}
               </button>
@@ -694,12 +694,12 @@ export const Invoices: React.FC = () => {
 
       {/* Modal Batalkan Tagihan (Pemilik) */}
       {cancelingInvoice && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
-            <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+        <div className="fixed inset-0 bg-foreground/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <h3 className="font-bold text-foreground text-lg flex items-center gap-2">
               <Ban className="w-5 h-5 text-rose-600" /> Batalkan Tagihan {cancelingInvoice.nomor}
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               Tagihan hanya bisa dibatalkan Pemilik dan hanya bila belum memiliki catatan pembayaran sama sekali. Tindakan ini mengubah status tagihan menjadi "Dibatalkan".
             </p>
 
@@ -709,22 +709,22 @@ export const Invoices: React.FC = () => {
               onDismiss={() => setInvoiceCancelError(null)}
             />
 
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1">
+            <div className="bg-muted/50 border border-border rounded-xl p-3 text-xs space-y-1">
               <div className="flex justify-between">
-                <span className="text-slate-500">Invoice:</span>
-                <span className="font-bold text-slate-800">{cancelingInvoice.nomor}</span>
+                <span className="text-muted-foreground">Invoice:</span>
+                <span className="font-bold text-foreground">{cancelingInvoice.nomor}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Penyewa:</span>
-                <span className="font-bold text-slate-800">{cancelingInvoice.kontrak?.penyewa?.nama_lengkap}</span>
+                <span className="text-muted-foreground">Penyewa:</span>
+                <span className="font-bold text-foreground">{cancelingInvoice.kontrak?.penyewa?.nama_lengkap}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Nominal:</span>
-                <span className="font-bold text-slate-800">{formatRupiah(cancelingInvoice.nominal_sewa)}</span>
+                <span className="text-muted-foreground">Nominal:</span>
+                <span className="font-bold text-foreground">{formatRupiah(cancelingInvoice.nominal_sewa)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Terbayar:</span>
-                <span className="font-bold text-emerald-700">{formatRupiah(cancelingInvoice.terbayar)}</span>
+                <span className="text-muted-foreground">Terbayar:</span>
+                <span className="font-bold text-primary">{formatRupiah(cancelingInvoice.terbayar)}</span>
               </div>
             </div>
 
@@ -734,7 +734,7 @@ export const Invoices: React.FC = () => {
                   setCancelingInvoice(null);
                   setInvoiceCancelError(null);
                 }}
-                className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-xl font-medium"
               >
                 Kembali
               </button>
@@ -752,12 +752,12 @@ export const Invoices: React.FC = () => {
 
       {/* Modal Generate Tagihan Bulanan (Pengelola/Pemilik) */}
       {showGenerateModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
-            <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
-              <PlusCircle className="w-5 h-5 text-emerald-600" /> Buat Tagihan Bulanan
+        <div className="fixed inset-0 bg-foreground/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <h3 className="font-bold text-foreground text-lg flex items-center gap-2">
+              <PlusCircle className="w-5 h-5 text-primary" /> Buat Tagihan Bulanan
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               Akan dibuat tagihan untuk semua kontrak berstatus aktif yang mencakup periode yang dipilih. Jatuh tempo
               selalu tanggal 10 (BR-06), nominal mengikuti harga sewa yang terkunci di kontrak. Proses ini aman dari
               tagihan ganda — jika tagihan periode yang sama sudah ada, otomatis dilewati.
@@ -770,14 +770,14 @@ export const Invoices: React.FC = () => {
             />
 
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">
+              <label className="text-xs font-semibold text-foreground block mb-1">
                 Periode Tagihan (selalu tanggal 1)
               </label>
               <input
                 type="month"
                 value={generatePeriod}
                 onChange={(e) => setGeneratePeriod(e.target.value)}
-                className="w-full text-sm border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="w-full text-sm border border-border rounded-xl px-3 py-2 focus:ring-2 focus:ring-ring focus:outline-none"
               />
             </div>
 
@@ -787,14 +787,14 @@ export const Invoices: React.FC = () => {
                   setShowGenerateModal(false);
                   setGenerateError(null);
                 }}
-                className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-xl font-medium"
               >
                 Batal
               </button>
               <button
                 onClick={handleGenerateInvoices}
                 disabled={isGenerating || !/^\d{4}-\d{2}$/.test(generatePeriod)}
-                className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-wait text-white rounded-xl font-semibold shadow-sm flex items-center gap-2"
+                className="px-4 py-2 text-sm bg-primary hover:bg-primary/90 disabled:opacity-60 disabled:cursor-wait text-white rounded-xl font-semibold shadow-sm flex items-center gap-2"
               >
                 {isGenerating && <Loader2 className="w-4 h-4 animate-spin" />}
                 {isGenerating ? 'Memproses...' : 'Buat Tagihan'}
@@ -806,12 +806,12 @@ export const Invoices: React.FC = () => {
 
       {/* Modal Bayar Online via Mayar (Penyewa, US-06) */}
       {onlinePayInvoice && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
-            <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+        <div className="fixed inset-0 bg-foreground/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <h3 className="font-bold text-foreground text-lg flex items-center gap-2">
               <CreditCard className="w-5 h-5 text-indigo-600" /> Bayar Online — {onlinePayInvoice.nomor}
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               Pembayaran diproses melalui payment gateway <strong>Mayar</strong> (US-06). Nominal mengikuti sisa
               tagihan termasuk denda yang berjalan. Setelah membayar, klik "Saya Sudah Bayar" untuk memuat ulang
               status tagihan.
@@ -825,20 +825,20 @@ export const Invoices: React.FC = () => {
 
             {!onlinePayResult ? (
               <>
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1">
+                <div className="bg-muted/50 border border-border rounded-xl p-3 text-xs space-y-1">
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Invoice:</span>
-                    <span className="font-bold text-slate-800">{onlinePayInvoice.nomor}</span>
+                    <span className="text-muted-foreground">Invoice:</span>
+                    <span className="font-bold text-foreground">{onlinePayInvoice.nomor}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Sisa Tagihan (bayar penuh):</span>
-                    <span className="font-extrabold text-emerald-700">
+                    <span className="text-muted-foreground">Sisa Tagihan (bayar penuh):</span>
+                    <span className="font-extrabold text-primary">
                       {formatRupiah(onlinePayInvoice.sisa_tagihan || 0)}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Metode:</span>
-                    <span className="font-bold text-slate-800">Online (Mayar)</span>
+                    <span className="text-muted-foreground">Metode:</span>
+                    <span className="font-bold text-foreground">Online (Mayar)</span>
                   </div>
                 </div>
                 <div className="flex justify-end gap-2 pt-2">
@@ -847,7 +847,7 @@ export const Invoices: React.FC = () => {
                       setOnlinePayInvoice(null);
                       setOnlinePayError(null);
                     }}
-                    className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                    className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-xl font-medium"
                   >
                     Batal
                   </button>
@@ -865,18 +865,18 @@ export const Invoices: React.FC = () => {
               <>
                 <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-xs space-y-1.5">
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Link Pembayaran:</span>
+                    <span className="text-muted-foreground">Link Pembayaran:</span>
                     <span className="font-bold text-indigo-700 truncate max-w-[220px]">
                       {onlinePayResult.link}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Nominal:</span>
-                    <span className="font-extrabold text-emerald-700">{formatRupiah(onlinePayResult.sisa)}</span>
+                    <span className="text-muted-foreground">Nominal:</span>
+                    <span className="font-extrabold text-primary">{formatRupiah(onlinePayResult.sisa)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Mode:</span>
-                    <span className="font-semibold text-slate-700">
+                    <span className="text-muted-foreground">Mode:</span>
+                    <span className="font-semibold text-foreground">
                       {onlinePayResult.mode === 'mayar' ? 'Mayar (asli)' : 'Sandbox Demo'}
                     </span>
                   </div>
@@ -885,7 +885,7 @@ export const Invoices: React.FC = () => {
                   <button
                     onClick={handleRefreshStatus}
                     disabled={isRefreshingStatus}
-                    className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-wait text-white rounded-xl font-semibold shadow-sm flex items-center gap-2"
+                    className="px-4 py-2 text-sm bg-primary hover:bg-primary/90 disabled:opacity-60 disabled:cursor-wait text-white rounded-xl font-semibold shadow-sm flex items-center gap-2"
                   >
                     {isRefreshingStatus && <Loader2 className="w-4 h-4 animate-spin" />}
                     {isRefreshingStatus ? 'Memuat...' : 'Saya Sudah Bayar'}

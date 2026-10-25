@@ -108,10 +108,10 @@ export const Reports: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
             <BarChart3 className="w-6 h-6 text-purple-600" /> Laporan Eksekutif Pendapatan & Hunian
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             Analisis arus kas sewa, tunggakan per unit, dan tingkat keterisian (Khusus Pemilik).
           </p>
         </div>
@@ -121,7 +121,7 @@ export const Reports: React.FC = () => {
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="text-xs font-semibold bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="text-xs font-semibold bg-card border border-border rounded-xl px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-purple-500"
           >
             <option value="all">Semua Bulan (Agus - Okt 2026)</option>
             <option value="2026-10">Oktober 2026</option>
@@ -141,25 +141,25 @@ export const Reports: React.FC = () => {
 
       {/* 4 Kartu Ringkasan Finansial */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-1">
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Ditagihkan</span>
-          <div className="text-2xl font-extrabold text-slate-900">{formatRupiah(totalDitagihkan)}</div>
-          <p className="text-xs text-slate-500">Termasuk denda berjalan</p>
+        <div className="bg-card rounded-2xl border border-border p-5 shadow-sm space-y-1">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Ditagihkan</span>
+          <div className="text-2xl font-extrabold text-foreground">{formatRupiah(totalDitagihkan)}</div>
+          <p className="text-xs text-muted-foreground">Termasuk denda berjalan</p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-1">
-          <span className="text-xs font-semibold uppercase tracking-wider text-emerald-600">Total Diterima (Kas Masuk)</span>
-          <div className="text-2xl font-extrabold text-emerald-700">{formatRupiah(totalDiterima)}</div>
-          <p className="text-xs text-emerald-600 font-medium">Pembayaran sah terverifikasi</p>
+        <div className="bg-card rounded-2xl border border-border p-5 shadow-sm space-y-1">
+          <span className="text-xs font-semibold uppercase tracking-wider text-primary">Total Diterima (Kas Masuk)</span>
+          <div className="text-2xl font-extrabold text-primary">{formatRupiah(totalDiterima)}</div>
+          <p className="text-xs text-primary font-medium">Pembayaran sah terverifikasi</p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-1">
+        <div className="bg-card rounded-2xl border border-border p-5 shadow-sm space-y-1">
           <span className="text-xs font-semibold uppercase tracking-wider text-rose-500">Total Tunggakan</span>
           <div className="text-2xl font-extrabold text-rose-600">{formatRupiah(totalTunggakan)}</div>
           <p className="text-xs text-rose-600 font-medium">Piutang sewa belum dibayar</p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-1">
+        <div className="bg-card rounded-2xl border border-border p-5 shadow-sm space-y-1">
           <span className="text-xs font-semibold uppercase tracking-wider text-purple-600">Tingkat Hunian</span>
           <div className="text-2xl font-extrabold text-purple-700">{occupancyRate}%</div>
           <p className="text-xs text-purple-600 font-medium">{unitTerisi} dari {unitAktif} unit layak huni</p>
@@ -167,9 +167,9 @@ export const Reports: React.FC = () => {
       </div>
 
       {/* Visualisasi Grafik Batang: Ditagihkan vs Diterima Bulanan */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
-        <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-emerald-600" /> Perbandingan Ditagihkan vs Diterima Per Bulan
+      <div className="bg-card rounded-2xl border border-border p-6 shadow-sm space-y-4">
+        <h3 className="font-bold text-foreground text-sm flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-primary" /> Perbandingan Ditagihkan vs Diterima Per Bulan
         </h3>
 
         <div className="space-y-4 pt-2">
@@ -180,26 +180,26 @@ export const Reports: React.FC = () => {
 
             return (
               <div key={m.month} className="space-y-1.5">
-                <div className="flex justify-between text-xs font-semibold text-slate-700">
+                <div className="flex justify-between text-xs font-semibold text-foreground">
                   <span>{m.label}</span>
                   <span>
-                    Ditagih: <strong className="text-slate-900">{formatRupiah(m.tagih)}</strong> · Diterima:{' '}
-                    <strong className="text-emerald-700">{formatRupiah(m.terima)}</strong>
+                    Ditagih: <strong className="text-foreground">{formatRupiah(m.tagih)}</strong> · Diterima:{' '}
+                    <strong className="text-primary">{formatRupiah(m.terima)}</strong>
                   </span>
                 </div>
 
                 <div className="space-y-1">
                   {/* Bar Ditagihkan */}
-                  <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                  <div className="w-full bg-muted h-3 rounded-full overflow-hidden">
                     <div
-                      className="bg-slate-400 h-full rounded-full transition-all duration-500"
+                      className="bg-muted-foreground h-full rounded-full transition-all duration-500"
                       style={{ width: tagihWidth }}
                     ></div>
                   </div>
                   {/* Bar Diterima */}
-                  <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                  <div className="w-full bg-muted h-3 rounded-full overflow-hidden">
                     <div
-                      className="bg-emerald-600 h-full rounded-full transition-all duration-500"
+                      className="bg-primary h-full rounded-full transition-all duration-500"
                       style={{ width: terimaWidth }}
                     ></div>
                   </div>
@@ -209,28 +209,28 @@ export const Reports: React.FC = () => {
           })}
         </div>
 
-        <div className="flex items-center gap-6 text-xs text-slate-500 pt-2 border-t border-slate-100">
+        <div className="flex items-center gap-6 text-xs text-muted-foreground pt-2 border-t border-border">
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-slate-400 inline-block"></span> Ditagihkan
+            <span className="w-3 h-3 rounded-full bg-muted-foreground inline-block"></span> Ditagihkan
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-emerald-600 inline-block"></span> Diterima (Lunas)
+            <span className="w-3 h-3 rounded-full bg-primary inline-block"></span> Diterima (Lunas)
           </div>
         </div>
       </div>
 
       {/* Tabel Pendapatan Per Unit */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-slate-200 flex justify-between items-center">
-          <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-border flex justify-between items-center">
+          <h3 className="font-bold text-foreground text-sm flex items-center gap-2">
             <Building2 className="w-4 h-4 text-purple-600" /> Rincian Pendapatan dan Tunggakan Per Unit
           </h3>
-          <span className="text-xs text-slate-400">Total 24 Unit</span>
+          <span className="text-xs text-muted-foreground">Total 24 Unit</span>
         </div>
 
         <div className="overflow-x-auto max-h-96">
-          <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider sticky top-0">
+          <table className="w-full text-left text-sm text-muted-foreground">
+            <thead className="bg-muted/50 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider sticky top-0">
               <tr>
                 <th className="py-3 px-4">Kode Unit</th>
                 <th className="py-3 px-4">Lantai & Tipe</th>
@@ -240,22 +240,22 @@ export const Reports: React.FC = () => {
                 <th className="py-3 px-4 text-right">Tunggakan</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-border">
               {unitRevenueData.map((d) => (
-                <tr key={d.kode} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="py-3 px-4 font-bold text-slate-900">{d.kode}</td>
+                <tr key={d.kode} className="hover:bg-muted/60 transition-colors">
+                  <td className="py-3 px-4 font-bold text-foreground">{d.kode}</td>
                   <td className="py-3 px-4 text-xs">
                     Lantai {d.lantai} · <span className="capitalize font-medium">{d.tipe}</span>
                   </td>
                   <td className="py-3 px-4">
-                    <span className="text-xs font-medium bg-slate-100 px-2 py-0.5 rounded text-slate-700 capitalize">
+                    <span className="text-xs font-medium bg-muted px-2 py-0.5 rounded text-foreground capitalize">
                       {d.status}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-right font-medium text-slate-800">
+                  <td className="py-3 px-4 text-right font-medium text-foreground">
                     {formatRupiah(d.ditagihkan)}
                   </td>
-                  <td className="py-3 px-4 text-right font-semibold text-emerald-700">
+                  <td className="py-3 px-4 text-right font-semibold text-primary">
                     {formatRupiah(d.diterima)}
                   </td>
                   <td className="py-3 px-4 text-right font-bold text-rose-600">

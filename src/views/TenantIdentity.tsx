@@ -126,10 +126,10 @@ export const TenantIdentity: React.FC = () => {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-          <UserSquare2 className="w-6 h-6 text-emerald-600" /> Data Identitas & Foto KTP Penghuni
+        <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
+          <UserSquare2 className="w-6 h-6 text-primary" /> Data Identitas & Foto KTP Penghuni
         </h1>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           Wajib dilengkapi untuk aktivasi kontrak kamar sewa. Data disimpan aman di storage privat.
         </p>
       </div>
@@ -143,7 +143,7 @@ export const TenantIdentity: React.FC = () => {
           }`}
         >
           {message.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-600" />
+            <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-primary" />
           ) : (
             <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-600" />
           )}
@@ -152,9 +152,9 @@ export const TenantIdentity: React.FC = () => {
       )}
 
       {/* Form */}
-      <form onSubmit={handleSave} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+      <form onSubmit={handleSave} className="bg-card rounded-2xl border border-border p-6 shadow-sm space-y-4">
         <div>
-          <label className="text-xs font-semibold text-slate-700 block mb-1">
+          <label className="text-xs font-semibold text-foreground block mb-1">
             Nomor Induk Kependudukan (NIK 16 Angka)
           </label>
           <input
@@ -163,26 +163,26 @@ export const TenantIdentity: React.FC = () => {
             value={nik}
             onChange={(e) => setNik(e.target.value)}
             placeholder="Contoh: 3471012345670001"
-            className="w-full text-sm font-mono border border-slate-300 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            className="w-full text-sm font-mono border border-border rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-ring focus:outline-none"
             required
           />
         </div>
 
         <div>
-          <label className="text-xs font-semibold text-slate-700 block mb-1">Alamat Asal KTP</label>
+          <label className="text-xs font-semibold text-foreground block mb-1">Alamat Asal KTP</label>
           <textarea
             rows={2}
             value={alamatAsal}
             onChange={(e) => setAlamatAsal(e.target.value)}
             placeholder="Jalan, RT/RW, Kelurahan, Kecamatan, Kota/Kabupaten"
-            className="w-full text-sm border border-slate-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            className="w-full text-sm border border-border rounded-xl p-2.5 focus:ring-2 focus:ring-ring focus:outline-none"
             required
           />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="text-xs font-semibold text-slate-700 block mb-1">
+            <label className="text-xs font-semibold text-foreground block mb-1">
               Nama Kontak Darurat & Hubungan
             </label>
             <input
@@ -190,12 +190,12 @@ export const TenantIdentity: React.FC = () => {
               value={kontakNama}
               onChange={(e) => setKontakNama(e.target.value)}
               placeholder="Contoh: Budi Santoso (Ayah)"
-              className="w-full text-sm border border-slate-300 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+              className="w-full text-sm border border-border rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-ring focus:outline-none"
               required
             />
           </div>
           <div>
-            <label className="text-xs font-semibold text-slate-700 block mb-1">
+            <label className="text-xs font-semibold text-foreground block mb-1">
               Nomor HP Kontak Darurat
             </label>
             <input
@@ -203,21 +203,21 @@ export const TenantIdentity: React.FC = () => {
               value={kontakHp}
               onChange={(e) => setKontakHp(e.target.value)}
               placeholder="08123456789"
-              className="w-full text-sm border border-slate-300 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+              className="w-full text-sm border border-border rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-ring focus:outline-none"
               required
             />
           </div>
         </div>
 
         <div>
-          <label className="text-xs font-semibold text-slate-700 block mb-1">
+          <label className="text-xs font-semibold text-foreground block mb-1">
             Unggah Berkas Foto KTP (JPG / PNG / WEBP, Maks 2MB)
           </label>
           <input
             type="file"
             accept={ACCEPTED_IMAGE_ATTR}
             onChange={handleFileSelect}
-            className="w-full text-xs text-slate-600 border border-slate-300 rounded-xl px-3 py-2.5 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-emerald-600 file:text-white file:text-xs file:font-semibold file:cursor-pointer hover:file:bg-emerald-700 cursor-pointer bg-white"
+            className="w-full text-xs text-muted-foreground border border-border rounded-xl px-3 py-2.5 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-primary file:text-white file:text-xs file:font-semibold file:cursor-pointer hover:file:bg-primary/90 cursor-pointer bg-card"
             aria-label="Pilih berkas foto KTP"
           />
 
@@ -229,29 +229,29 @@ export const TenantIdentity: React.FC = () => {
           )}
 
           {/* Pratinjau: foto baru terpilih -> urut teratas; lalu foto tersimpan (signed URL) */}
-          <div className="mt-3 flex items-center gap-4 border border-dashed border-slate-300 rounded-xl p-4 bg-slate-50">
+          <div className="mt-3 flex items-center gap-4 border border-dashed border-border rounded-xl p-4 bg-muted/50">
             {fotoPreview ? (
               <img
                 src={fotoPreview}
                 alt="Pratinjau foto KTP baru"
-                className="w-20 h-14 object-cover rounded-lg border border-slate-200 shadow-sm"
+                className="w-20 h-14 object-cover rounded-lg border border-border shadow-sm"
               />
             ) : existingPreview ? (
               <img
                 src={existingPreview}
                 alt="Foto KTP tersimpan"
-                className="w-20 h-14 object-cover rounded-lg border border-slate-200 shadow-sm"
+                className="w-20 h-14 object-cover rounded-lg border border-border shadow-sm"
               />
             ) : (
-              <div className="w-20 h-14 rounded-lg bg-slate-200 flex items-center justify-center">
-                <ImageIcon className="w-6 h-6 text-slate-400" />
+              <div className="w-20 h-14 rounded-lg bg-border flex items-center justify-center">
+                <ImageIcon className="w-6 h-6 text-muted-foreground" />
               </div>
             )}
             <div className="text-xs min-w-0 flex-1">
-              <span className="font-semibold text-slate-800 block truncate">
+              <span className="font-semibold text-foreground block truncate">
                 {fotoFile ? fotoFile.name : currentIdentity?.foto_ktp_path || 'Belum ada foto KTP diunggah'}
               </span>
-              <p className="text-slate-400">
+              <p className="text-muted-foreground">
                 {fotoFile
                   ? `${(fotoFile.size / 1024).toFixed(0)} KB — menunggu disimpan`
                   : 'Foto tersimpan aman di bucket privat Supabase (akses via link sementara)'}
@@ -269,7 +269,7 @@ export const TenantIdentity: React.FC = () => {
           <button
             type="submit"
             disabled={isSaving}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-wait text-white font-semibold py-3 px-4 rounded-xl shadow-sm transition-colors text-sm flex items-center justify-center gap-2"
+            className="w-full bg-primary hover:bg-primary/90 disabled:opacity-60 disabled:cursor-wait text-white font-semibold py-3 px-4 rounded-xl shadow-sm transition-colors text-sm flex items-center justify-center gap-2"
           >
             {isSaving ? 'Mengunggah & Menyimpan...' : 'Simpan Data Identitas'}
           </button>

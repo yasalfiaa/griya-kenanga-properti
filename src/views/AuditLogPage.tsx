@@ -33,10 +33,10 @@ export const AuditLogPage: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
           <ShieldAlert className="w-6 h-6 text-purple-600" /> Jejak Rekam Sistem (Audit Log)
         </h1>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           Mencatat semua aksi sensitif: aktivasi/pengakhiran kontrak, pencatatan/pembatalan bayar, ubah harga & status, verifikasi KTP (Tanpa NIK & KTP rahasia).
         </p>
       </div>
@@ -44,20 +44,20 @@ export const AuditLogPage: React.FC = () => {
       {/* Filter Bar */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+          <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
           <input
             type="text"
             placeholder="Cari aksi, tabel, atau nama staf..."
             value={searchKeyword}
             onChange={(e) => setSearchKeyword(e.target.value)}
-            className="w-full text-xs border border-slate-300 rounded-xl pl-9 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full text-xs border border-border rounded-xl pl-9 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
         </div>
 
         <select
           value={filterAction}
           onChange={(e) => setFilterAction(e.target.value)}
-          className="text-xs font-semibold bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="text-xs font-semibold bg-card border border-border rounded-xl px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-purple-500"
         >
           <option value="all">Semua Jenis Aksi</option>
           <option value="kontrak">Kontrak</option>
@@ -69,10 +69,10 @@ export const AuditLogPage: React.FC = () => {
       </div>
 
       {/* Tabel Audit Log */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
         <div className="overflow-x-auto max-h-[600px]">
-          <table className="w-full text-left text-xs text-slate-600">
-            <thead className="bg-slate-50 border-b border-slate-200 font-semibold text-slate-500 uppercase tracking-wider sticky top-0">
+          <table className="w-full text-left text-xs text-muted-foreground">
+            <thead className="bg-muted/50 border-b border-border font-semibold text-muted-foreground uppercase tracking-wider sticky top-0">
               <tr>
                 <th className="py-3 px-4">Waktu</th>
                 <th className="py-3 px-4">Pelaku & Peran</th>
@@ -81,21 +81,21 @@ export const AuditLogPage: React.FC = () => {
                 <th className="py-3 px-4">Sebelum / Sesudah</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 font-mono">
+            <tbody className="divide-y divide-border font-mono">
               {filteredLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="py-3 px-4 text-slate-500 whitespace-nowrap">{log.dibuat_pada}</td>
-                  <td className="py-3 px-4 font-sans font-medium text-slate-900">
+                <tr key={log.id} className="hover:bg-muted/60 transition-colors">
+                  <td className="py-3 px-4 text-muted-foreground whitespace-nowrap">{log.dibuat_pada}</td>
+                  <td className="py-3 px-4 font-sans font-medium text-foreground">
                     <div>{log.pelaku?.nama_lengkap || log.pelaku_id}</div>
                     <span className="text-[10px] uppercase font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded">
                       {log.peran}
                     </span>
                   </td>
-                  <td className="py-3 px-4 font-semibold text-slate-800">{log.aksi}</td>
-                  <td className="py-3 px-4 text-slate-600">
-                    <span className="bg-slate-100 px-1.5 py-0.5 rounded">{log.tabel}</span> ({log.data_id?.slice(0, 8)}...)
+                  <td className="py-3 px-4 font-semibold text-foreground">{log.aksi}</td>
+                  <td className="py-3 px-4 text-muted-foreground">
+                    <span className="bg-muted px-1.5 py-0.5 rounded">{log.tabel}</span> ({log.data_id?.slice(0, 8)}...)
                   </td>
-                  <td className="py-3 px-4 text-[11px] max-w-xs truncate text-slate-500 font-mono">
+                  <td className="py-3 px-4 text-[11px] max-w-xs truncate text-muted-foreground font-mono">
                     {log.sesudah ? JSON.stringify(log.sesudah) : '-'}
                   </td>
                 </tr>

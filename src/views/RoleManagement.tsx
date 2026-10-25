@@ -42,10 +42,10 @@ export const RoleManagement: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
           <UserCheck className="w-6 h-6 text-purple-600" /> Pengaturan Hak Akses & Peran Akun
         </h1>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           Akun baru yang mendaftar sendiri otomatis Penyewa. Peran Pengelola dan Pemilik hanya bisa diberikan oleh Pemilik.
         </p>
       </div>
@@ -60,7 +60,7 @@ export const RoleManagement: React.FC = () => {
           }`}
         >
           {message.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-600" />
+            <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-primary" />
           ) : (
             <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-600" />
           )}
@@ -72,10 +72,10 @@ export const RoleManagement: React.FC = () => {
       )}
 
       {/* Tabel Akun */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          <table className="w-full text-left text-sm text-muted-foreground">
+            <thead className="bg-muted/50 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               <tr>
                 <th className="py-3.5 px-4">Nama Lengkap</th>
                 <th className="py-3.5 px-4">Email & Kontak</th>
@@ -83,17 +83,17 @@ export const RoleManagement: React.FC = () => {
                 <th className="py-3.5 px-4 text-right">Ubah Peran</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-border">
               {profiles.map((p) => {
                 const isSelf = p.id === currentUser?.id;
                 return (
-                  <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3.5 px-4 font-semibold text-slate-900">
+                  <tr key={p.id} className="hover:bg-muted/60 transition-colors">
+                    <td className="py-3.5 px-4 font-semibold text-foreground">
                       {p.nama_lengkap} {isSelf && <span className="text-xs text-purple-600 font-normal">(Anda)</span>}
                     </td>
                     <td className="py-3.5 px-4 text-xs">
                       <div>{p.email}</div>
-                      <div className="text-slate-400">{p.no_hp}</div>
+                      <div className="text-muted-foreground">{p.no_hp}</div>
                     </td>
                     <td className="py-3.5 px-4">
                       <span
@@ -110,12 +110,12 @@ export const RoleManagement: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       {isSelf ? (
-                        <span className="text-xs text-slate-400 italic">Tidak dapat diubah</span>
+                        <span className="text-xs text-muted-foreground italic">Tidak dapat diubah</span>
                       ) : (
                         <select
                           value={p.peran}
                           onChange={(e) => handleChangeRole(p.id, e.target.value as RoleType)}
-                          className="text-xs font-semibold bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                          className="text-xs font-semibold bg-card border border-border rounded-lg px-2.5 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-purple-500"
                         >
                           <option value="penyewa">Penyewa</option>
                           <option value="pengelola">Pengelola</option>

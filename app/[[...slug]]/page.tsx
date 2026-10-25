@@ -13,8 +13,8 @@ import dynamic from 'next/dynamic';
 const App = dynamic(() => import('../../src/App').then((m) => m.App), {
   ssr: false,
   loading: () => (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <p className="text-slate-500">Memuat aplikasi...</p>
+    <div className="min-h-screen flex items-center justify-center bg-muted/50">
+      <p className="text-muted-foreground">Memuat aplikasi...</p>
     </div>
   ),
 });
