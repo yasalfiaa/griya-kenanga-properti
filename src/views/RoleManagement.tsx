@@ -43,10 +43,10 @@ export const RoleManagement: React.FC = () => {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground tracking-tight">
-          Pengaturan Hak Akses & Peran Akun
+          Pengaturan Hak Akses Akun
         </h1>
         <p className="text-sm text-muted-foreground">
-          Akun baru yang mendaftar sendiri otomatis Penyewa. Peran Pengelola dan Pemilik hanya bisa diberikan oleh Pemilik.
+          Kelola akses pengguna yang terdaftar pada aplikasi ini.
         </p>
       </div>
 
@@ -77,10 +77,10 @@ export const RoleManagement: React.FC = () => {
           <table className="w-full text-left text-sm text-muted-foreground">
             <thead className="bg-muted/50 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               <tr>
-                <th className="py-3.5 px-4">Nama Lengkap</th>
-                <th className="py-3.5 px-4">Email & Kontak</th>
-                <th className="py-3.5 px-4">Peran Saat Ini</th>
-                <th className="py-3.5 px-4 text-right">Ubah Peran</th>
+                <th className="py-2 px-4">Nama Lengkap</th>
+                <th className="py-2 px-4">Email & Kontak</th>
+                <th className="py-2 px-4">Peran Saat Ini</th>
+                <th className="py-2 px-4 text-right">Ubah Peran</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -88,14 +88,14 @@ export const RoleManagement: React.FC = () => {
                 const isSelf = p.id === currentUser?.id;
                 return (
                   <tr key={p.id} className="hover:bg-muted/60 transition-colors">
-                    <td className="py-3.5 px-4 font-semibold text-foreground">
+                    <td className="py-2 px-4 font-semibold text-foreground">
                       {p.nama_lengkap} {isSelf && <span className="text-xs text-purple-600 font-normal">(Anda)</span>}
                     </td>
-                    <td className="py-3.5 px-4 text-xs">
+                    <td className="py-2 px-4 text-xs">
                       <div>{p.email}</div>
                       <div className="text-muted-foreground">{p.no_hp}</div>
                     </td>
-                    <td className="py-3.5 px-4">
+                    <td className="py-2 px-4">
                       <span
                         className={`text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize ${
                           p.peran === 'pemilik'
@@ -108,7 +108,7 @@ export const RoleManagement: React.FC = () => {
                         {p.peran}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-right">
+                    <td className="py-2 px-4 text-right">
                       {isSelf ? (
                         <span className="text-xs text-muted-foreground italic">Tidak dapat diubah</span>
                       ) : (
