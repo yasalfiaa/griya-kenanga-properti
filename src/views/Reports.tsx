@@ -3,6 +3,16 @@ import { useAuth } from '../context/AuthContext';
 import { dataStore } from '../api/data-service';
 import { formatRupiah } from '../utils/business-rules';
 import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  CartesianGrid,
+} from 'recharts';
+import {
   Download,
   Calendar,
   Building2,
@@ -96,7 +106,7 @@ export const Reports: React.FC = () => {
     const terima = mInvoices.reduce((acc, curr) => acc + curr.terbayar, 0);
     return {
       month: m,
-      label: m === '2026-08' ? 'Agustus 2026' : m === '2026-09' ? 'September 2026' : 'Oktober 2026',
+      label: m === '2026-08' ? 'Agustus' : m === '2026-09' ? 'September' : 'Oktober',
       tagih,
       terima,
     };
@@ -108,10 +118,10 @@ export const Reports: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
-            Laporan Eksekutif Pendapatan & Hunian
+            Laporan Pendapatan & Hunian
           </h1>
           <p className="text-sm text-muted-foreground">
-            Analisis arus kas sewa, tunggakan per unit, dan tingkat keterisian (Khusus Pemilik).
+            Analisis arus kas sewa dan rincian pendapatan per unit.
           </p>
         </div>
 
@@ -131,7 +141,7 @@ export const Reports: React.FC = () => {
           {/* Unduh CSV Button */}
           <button
             onClick={handleExportCSV}
-            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs px-3.5 py-2 rounded-xl shadow-sm transition-colors"
+            className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-semibold text-xs px-3.5 py-2 rounded-xl shadow-sm transition-colors"
           >
             <Download className="w-3.5 h-3.5" /> Unduh CSV
           </button>
@@ -165,56 +175,49 @@ export const Reports: React.FC = () => {
         </div>
       </div>
 
-      {/* Visualisasi Grafik Batang: Ditagihkan vs Diterima Bulanan */}
-      <div className="bg-card rounded-2xl border border-border p-6 shadow-sm space-y-4">
+      {/* Visualisasi Grafik Batang Berkelompok (Recharts): Ditagihkan vs Diterima Bulanan */}
+      <div className="bg-white rounded-xl p-6 border shadow-sm space-y-4">
         <h3 className="font-bold text-foreground text-sm flex items-center gap-2">
           <TrendingUp className="w-4 h-4 text-primary" /> Perbandingan Ditagihkan vs Diterima Per Bulan
         </h3>
 
-        <div className="space-y-4 pt-2">
-          {monthlySummary.map((m) => {
-            const maxVal = Math.max(...monthlySummary.map(s => s.tagih));
-            const tagihWidth = `${(m.tagih / maxVal) * 100}%`;
-            const terimaWidth = `${(m.terima / maxVal) * 100}%`;
-
-            return (
-              <div key={m.month} className="space-y-1.5">
-                <div className="flex justify-between text-xs font-semibold text-foreground">
-                  <span>{m.label}</span>
-                  <span>
-                    Ditagih: <strong className="text-foreground">{formatRupiah(m.tagih)}</strong> · Diterima:{' '}
-                    <strong className="text-primary">{formatRupiah(m.terima)}</strong>
-                  </span>
-                </div>
-
-                <div className="space-y-1">
-                  {/* Bar Ditagihkan */}
-                  <div className="w-full bg-muted h-3 rounded-full overflow-hidden">
-                    <div
-                      className="bg-muted-foreground h-full rounded-full transition-all duration-500"
-                      style={{ width: tagihWidth }}
-                    ></div>
-                  </div>
-                  {/* Bar Diterima */}
-                  <div className="w-full bg-muted h-3 rounded-full overflow-hidden">
-                    <div
-                      className="bg-primary h-full rounded-full transition-all duration-500"
-                      style={{ width: terimaWidth }}
-                    ></div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="flex items-center gap-6 text-xs text-muted-foreground pt-2 border-t border-border">
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-muted-foreground inline-block"></span> Ditagihkan
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-primary inline-block"></span> Diterima (Lunas)
-          </div>
+        <div className="h-72 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={monthlySummary} barGap={6} margin={{ top: 8, right: 16, left: 4, bottom: 4 }}>
+              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis
+                dataKey="label"
+                tickLine={false}
+                axisLine={false}
+                tick={{ fontSize: 12, fill: '#64748b', fontWeight: 600 }}
+              />
+              <YAxis
+                tickFormatter={(value: number) => `${Math.round(value / 1_000_000)}jt`}
+                tickLine={false}
+                axisLine={false}
+                width={44}
+                tick={{ fontSize: 11, fill: '#94a3b8' }}
+              />
+              <Tooltip
+                cursor={{ fill: 'rgba(148, 163, 184, 0.1)' }}
+                formatter={(value) => formatRupiah(Number(value))}
+                contentStyle={{
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.06)',
+                  fontSize: '12px',
+                  padding: '8px 12px',
+                }}
+              />
+              <Legend
+                iconType="circle"
+                iconSize={8}
+                wrapperStyle={{ fontSize: '12px', fontWeight: 600, paddingTop: '8px' }}
+              />
+              <Bar dataKey="tagih" name="Ditagihkan" fill="#94a3b8" radius={[6, 6, 0, 0]} maxBarSize={40} />
+              <Bar dataKey="terima" name="Diterima" fill="var(--primary)" radius={[6, 6, 0, 0]} maxBarSize={40} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
