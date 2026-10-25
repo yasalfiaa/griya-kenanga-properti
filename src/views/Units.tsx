@@ -7,13 +7,68 @@ import { ModalErrorAlert } from '../components/ModalErrorAlert';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { parseErrorMessage } from '../utils/error-handler';
-import { Building2, Edit2, AlertCircle, CheckCircle2, Shield } from 'lucide-react';
+import {
+  Building2,
+  Edit2,
+  AlertCircle,
+  CheckCircle2,
+  Shield,
+  ArrowLeft,
+  ArrowRight,
+} from 'lucide-react';
+
+/** Metadata katalog tipe unit (foto representatif dari Unsplash, stok publik). */
+const TIPE_KATALOG: Array<{
+  tipe: Unit['tipe'];
+  prefix: string; // Blok pada kode kamar (A/B/C)
+  judul: string;
+  ringkasan: string;
+  foto: string;
+}> = [
+  {
+    tipe: 'standar',
+    prefix: 'A',
+    judul: 'Unit A · Kamar Standar',
+    ringkasan: 'Tipe standar, lantai 1 (Blok A) — pilihan ekonomis bagi penyewa baru.',
+    foto:
+      'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?auto=format&fit=crop&w=900&q=60',
+  },
+  {
+    tipe: 'ac',
+    prefix: 'B',
+    judul: 'Unit B · Kamar AC',
+    ringkasan: 'Tipe ber-AC, lantai 2 (Blok B) — nyaman untuk tengah hari yang panas.',
+    foto:
+      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=900&q=60',
+  },
+  {
+    tipe: 'studio',
+    prefix: 'C',
+    judul: 'Unit C · Studio',
+    ringkasan: 'Unit studio luas, lantai 3 (Blok C) — ruang paling lega di properti ini.',
+    foto:
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=900&q=60',
+  },
+];
+
+/** Nilai luas minimum–maksimum suatu tipe (contoh: "12–14 m²"). */
+const rentangLuas = (kamars: Unit[]) => {
+  const min = Math.min(...kamars.map((u) => u.luas_m2));
+  const max = Math.max(...kamars.map((u) => u.luas_m2));
+  return min === max ? `${min} m²` : `${min}–${max} m²`;
+};
+
+const hargaMulai = (kamars: Unit[]) => {
+  const min = Math.min(...kamars.map((u) => u.harga_sewa_bulanan));
+  return `Mulai ${formatRupiah(min)}`;
+};
 
 export const Units: React.FC = () => {
   const { currentUser, role } = useAuth();
   const [units, setUnits] = useState<Unit[]>(() => dataStore.getUnits());
-  const [selectedFloor, setSelectedFloor] = useState<number | 'all'>('all');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  // View state halaman: null = katalog tipe; selain itu = detail kamar tipe tsb.
+  const [selectedType, setSelectedType] = useState<Unit['tipe'] | null>(null);
 
   // Modal Ubah Harga (Pemilik)
   const [editingPriceUnit, setEditingPriceUnit] = useState<Unit | null>(null);
@@ -24,10 +79,6 @@ export const Units: React.FC = () => {
   const [editingStatusUnit, setEditingStatusUnit] = useState<Unit | null>(null);
   const [newStatus, setNewStatus] = useState<UnitStatus>('tersedia');
   const [statusModalError, setStatusModalError] = useState<string | null>(null);
-
-  const filteredUnits = units.filter(u =>
-    selectedFloor === 'all' ? true : u.lantai === selectedFloor
-  );
 
   const handleUpdatePrice = () => {
     if (!editingPriceUnit || !currentUser) return;
@@ -71,143 +122,197 @@ export const Units: React.FC = () => {
     }
   };
 
+  const tipeAktif = TIPE_KATALOG.find((t) => t.tipe === selectedType) ?? null;
+  // Filter daftar kamar otomatis mengikuti tipe yang dipilih di katalog
+  // (Unit A → A-101 s/d A-108, dan seterusnya). Sumber data tetap satu,
+  // sehingga hak baca per peran yang sudah dijaga RLS tidak berubah.
+  const kamarsByTipe = selectedType ? units.filter((u) => u.tipe === selectedType) : [];
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
-            <Building2 className="w-6 h-6 text-primary" /> Pengelolaan 24 Unit Kamar
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Lantai 1 (Blok A - Standar), Lantai 2 (Blok B - AC), Lantai 3 (Blok C - Studio)
-          </p>
-        </div>
+      {/* ============ TAMPILAN UTAMA: KATALOG TIPE UNIT ============ */}
+      {!tipeAktif && (
+        <>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
+              <Building2 className="w-6 h-6 text-primary" /> Daftar Unit (24 Kamar)
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Pilih tipe unit untuk melihat daftar kamar.
+            </p>
+          </div>
 
-        {/* Filter Lantai */}
-        <div className="flex bg-muted p-1 rounded-xl text-xs font-semibold">
-          <button
-            onClick={() => setSelectedFloor('all')}
-            className={`px-3 py-1.5 rounded-lg transition-all ${
-              selectedFloor === 'all' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Semua (24)
-          </button>
-          <button
-            onClick={() => setSelectedFloor(1)}
-            className={`px-3 py-1.5 rounded-lg transition-all ${
-              selectedFloor === 1 ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Lantai 1 (Standar)
-          </button>
-          <button
-            onClick={() => setSelectedFloor(2)}
-            className={`px-3 py-1.5 rounded-lg transition-all ${
-              selectedFloor === 2 ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Lantai 2 (AC)
-          </button>
-          <button
-            onClick={() => setSelectedFloor(3)}
-            className={`px-3 py-1.5 rounded-lg transition-all ${
-              selectedFloor === 3 ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Lantai 3 (Studio)
-          </button>
-        </div>
-      </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {TIPE_KATALOG.map((tipeInfo) => {
+              const kamars = units.filter((u) => u.tipe === tipeInfo.tipe);
+              const tersedia = kamars.filter((u) => u.status === 'tersedia').length;
 
-      {/* Alert Notification */}
-      {message && (
-        <div
-          className={`p-4 rounded-xl flex items-center gap-3 text-sm ${
-            message.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-              : 'bg-rose-50 text-rose-800 border border-rose-200'
-          }`}
-        >
-          {message.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-primary" />
-          ) : (
-            <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-600" />
-          )}
-          <span>{message.text}</span>
-          <button onClick={() => setMessage(null)} className="ml-auto text-xs font-bold hover:underline">
-            Tutup
-          </button>
-        </div>
+              return (
+                <div
+                  key={tipeInfo.tipe}
+                  className="bg-card rounded-2xl border border-border overflow-hidden shadow-sm hover:shadow-md hover:border-ring/40 transition-all flex flex-col"
+                >
+                  {/* Foto representatif tipe kamar */}
+                  <div className="relative h-44 w-full bg-muted overflow-hidden">
+                    <img
+                      src={tipeInfo.foto}
+                      alt={`Foto tipe ${tipeInfo.judul}`}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                    <span className="absolute top-3 left-3 bg-card/90 backdrop-blur px-2.5 py-1 rounded-full text-xs font-bold text-foreground shadow-sm">
+                      {tipeInfo.prefix === 'A' ? 'Lantai 1' : tipeInfo.prefix === 'B' ? 'Lantai 2' : 'Lantai 3'}
+                    </span>
+                    <span className="absolute bottom-3 right-3 bg-primary text-primary-foreground px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm">
+                      {kamars.length} Kamar
+                    </span>
+                  </div>
+
+                  <div className="p-5 flex flex-col gap-3 flex-1">
+                    <div>
+                      <h2 className="font-bold text-foreground">{tipeInfo.judul}</h2>
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                        {tipeInfo.ringkasan}
+                      </p>
+                    </div>
+
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <div>
+                        Luas: <span className="font-semibold text-foreground">{rentangLuas(kamars)}</span>
+                      </div>
+                      <div>
+                        Sewa Bulanan: <span className="font-semibold text-primary">{hargaMulai(kamars)}</span>
+                      </div>
+                      <div>
+                        Status: <span className="font-semibold text-emerald-700">{tersedia} tersedia</span> dari {kamars.length} kamar
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => setSelectedType(tipeInfo.tipe)}
+                      className="mt-auto w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-semibold shadow-sm transition-colors"
+                    >
+                      Lihat Daftar Kamar <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
 
-      {/* Grid Unit Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {filteredUnits.length === 0 && (
-          <EmptyState
-            icon={Building2}
-            title="Belum Ada Unit"
-            description="Tidak ada unit pada lantai yang dipilih."
-            className="sm:col-span-2 md:col-span-3 lg:col-span-4"
-          />
-        )}
-        {filteredUnits.map((u) => (
-          <div
-            key={u.id}
-            className="bg-card rounded-2xl border border-border p-5 shadow-sm hover:border-border transition-all flex flex-col justify-between space-y-4"
+      {/* ============ TAMPILAN DETAIL: DAFTAR KAMAR PER TIPE ============ */}
+      {tipeAktif && (
+        <>
+          {/* Tombol kembali ke katalog */}
+          <button
+            onClick={() => setSelectedType(null)}
+            className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-primary transition-colors"
           >
+            <ArrowLeft className="w-4 h-4" /> Kembali ke Pilih Tipe
+          </button>
+
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <div className="flex justify-between items-start mb-2">
-                <span className="text-xl font-bold text-foreground">{u.kode}</span>
-                {getStatusBadge(u.status)}
-              </div>
-              <div className="text-xs text-muted-foreground space-y-1">
-                <div>
-                  Lantai {u.lantai} · Tipe: <span className="font-semibold text-foreground capitalize">{u.tipe}</span>
-                </div>
-                <div>Luas: {u.luas_m2} m²</div>
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-border flex items-center justify-between">
-              <div>
-                <span className="text-[11px] text-muted-foreground block font-medium">Sewa Bulanan</span>
-                <span className="font-bold text-primary text-sm">{formatRupiah(u.harga_sewa_bulanan)}</span>
-              </div>
-
-              {/* Action Buttons based on Role */}
-              <div className="flex items-center gap-1">
-                {role === 'pengelola' && (
-                  <button
-                    onClick={() => {
-                      setEditingStatusUnit(u);
-                      setNewStatus(u.status);
-                    }}
-                    title="Ubah Status Unit"
-                    className="p-1.5 text-muted-foreground hover:text-primary hover:bg-emerald-50 rounded-lg text-xs font-medium border border-border flex items-center gap-1"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" /> Status
-                  </button>
-                )}
-
-                {role === 'pemilik' && (
-                  <button
-                    onClick={() => {
-                      setEditingPriceUnit(u);
-                      setNewPrice(u.harga_sewa_bulanan);
-                    }}
-                    title="Ubah Harga Sewa (Khusus Pemilik)"
-                    className="p-1.5 text-purple-700 hover:bg-purple-50 rounded-lg text-xs font-medium border border-purple-200 flex items-center gap-1"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" /> Harga
-                  </button>
-                )}
-              </div>
+              <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
+                <Building2 className="w-6 h-6 text-primary" /> {tipeAktif.judul}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Blok {tipeAktif.prefix} · Luas {rentangLuas(kamarsByTipe)} · {kamarsByTipe.length} kamar · sewa {hargaMulai(kamarsByTipe)}.
+              </p>
             </div>
           </div>
-        ))}
-      </div>
+
+          {/* Alert Notification */}
+          {message && (
+            <div
+              className={`p-4 rounded-xl flex items-center gap-3 text-sm ${
+                message.type === 'success'
+                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                  : 'bg-rose-50 text-rose-800 border border-rose-200'
+              }`}
+            >
+              {message.type === 'success' ? (
+                <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-primary" />
+              ) : (
+                <AlertCircle className="w-5 h-5 flex-shrink-0 text-rose-600" />
+              )}
+              <span>{message.text}</span>
+              <button onClick={() => setMessage(null)} className="ml-auto text-xs font-bold hover:underline">
+                Tutup
+              </button>
+            </div>
+          )}
+
+          {/* Grid Daftar Kamar (sama seperti sebelumnya, kini terfilter per tipe) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {kamarsByTipe.length === 0 && (
+              <EmptyState
+                icon={Building2}
+                title="Belum Ada Kamar"
+                description={`Tidak ada kamar bertipe ${tipeAktif.tipe} pada data saat ini.`}
+                className="sm:col-span-2 md:col-span-3 lg:col-span-4"
+              />
+            )}
+            {kamarsByTipe.map((u) => (
+              <div
+                key={u.id}
+                className="bg-card rounded-2xl border border-border p-5 shadow-sm hover:border-border transition-all flex flex-col justify-between space-y-4"
+              >
+                <div>
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-xl font-bold text-foreground">{u.kode}</span>
+                    {getStatusBadge(u.status)}
+                  </div>
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <div>
+                      Lantai {u.lantai} · Tipe: <span className="font-semibold text-foreground capitalize">{u.tipe}</span>
+                    </div>
+                    <div>Luas: {u.luas_m2} m²</div>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-border flex items-center justify-between">
+                  <div>
+                    <span className="text-[11px] text-muted-foreground block font-medium">Sewa Bulanan</span>
+                    <span className="font-bold text-primary text-sm">{formatRupiah(u.harga_sewa_bulanan)}</span>
+                  </div>
+
+                  {/* Action Buttons based on Role */}
+                  <div className="flex items-center gap-1">
+                    {role === 'pengelola' && (
+                      <button
+                        onClick={() => {
+                          setEditingStatusUnit(u);
+                          setNewStatus(u.status);
+                        }}
+                        title="Ubah Status Unit"
+                        className="p-1.5 text-muted-foreground hover:text-primary hover:bg-emerald-50 rounded-lg text-xs font-medium border border-border flex items-center gap-1"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" /> Status
+                      </button>
+                    )}
+
+                    {role === 'pemilik' && (
+                      <button
+                        onClick={() => {
+                          setEditingPriceUnit(u);
+                          setNewPrice(u.harga_sewa_bulanan);
+                        }}
+                        title="Ubah Harga Sewa (Khusus Pemilik)"
+                        className="p-1.5 text-purple-700 hover:bg-purple-50 rounded-lg text-xs font-medium border border-purple-200 flex items-center gap-1"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" /> Harga
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Modal Ubah Harga (Pemilik) */}
       {editingPriceUnit && (

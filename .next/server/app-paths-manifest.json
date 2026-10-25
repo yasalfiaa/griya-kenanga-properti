@@ -1,4 +1,5 @@
 {
-  "/api/pembayaran/status/route": "app/api/pembayaran/status/route.js",
+  "/api/pembayaran/buat/route": "app/api/pembayaran/buat/route.js",
+  "/api/pembayaran/cek/route": "app/api/pembayaran/cek/route.js",
   "/[[...slug]]/page": "app/[[...slug]]/page.js"
 }
