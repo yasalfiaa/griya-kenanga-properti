@@ -123,8 +123,8 @@ export const Invoices: React.FC = () => {
   };
 
   // === Tombol Bayar Online utama: panggil /api/pembayaran/buat (Mayar V2) ===
-  // Semua role (penyewa/pengelola/pemilik) memakai tombol ini.
-  // Penyewa yang mendapat 403 → fallback ke modal US-06 yang lama (alur tidak berubah).
+  // Hanya PENYEWA memakai tombol ini di baris tabel. Pengelola 403 tak mungkin
+  // (tombol tak tampil); penyewa yang mendapat 403 → fallback modal US-06 lama.
   const handleBayarOnline = async (inv: Tagihan) => {
     if (!currentUser || isMembuatLink !== null) return;
     try {
@@ -485,8 +485,8 @@ export const Invoices: React.FC = () => {
                   </td>
                   <td className="py-3.5 px-4 text-right">
                     <div className="flex items-center justify-end gap-1.5">
-                      {/* Bayar Online via API Mayar V2 — semua role; penyewa yang tertolak 403 otomatis membuka modal US-06 */}
-                      {inv.status !== 'lunas' && inv.status !== 'dibatalkan' && (
+                      {/* Penyewa: Bayar Online via API Mayar V2 (403 → modal US-06) */}
+                      {role === 'penyewa' && inv.status !== 'lunas' && inv.status !== 'dibatalkan' && (
                         <button
                           onClick={() => handleBayarOnline(inv)}
                           disabled={isMembuatLink !== null}
@@ -498,37 +498,44 @@ export const Invoices: React.FC = () => {
                             </>
                           ) : (
                             <>
-                              <CreditCard className="w-3.5 h-3.5" /> Bayar Online
+                              Bayar Online
                             </>
                           )}
                         </button>
                       )}
 
-                      {/* Pengelola: Catat Pembayaran */}
+                      {/* Pengelola: Catat Pembayaran — opsi tunai; setelah simpan,
+                          status & terbayar tagihan otomatis diperbarui di sistem */}
                       {role === 'pengelola' && inv.status !== 'lunas' && inv.status !== 'dibatalkan' && (
                         <button
                           onClick={() => {
                             setPayingInvoice(inv);
                             setPayAmount(inv.sisa_tagihan || 0);
+                            setPayMethod('tunai'); // default opsi tunai
+                            if (buktiPreview) URL.revokeObjectURL(buktiPreview);
+                            setBuktiFile(null);
+                            setBuktiPreview(null);
                             setPayModalError(null);
                           }}
-                          className="px-3 py-1.5 text-xs bg-primary hover:bg-primary/90 text-white rounded-lg font-semibold shadow-sm transition-colors"
+                          className="px-3 py-1.5 text-xs bg-primary hover:bg-primary/90 text-white rounded-lg font-semibold shadow-sm transition-colors flex items-center gap-1"
                         >
-                          Catat Bayar
+                          Catat Pembayaran
                         </button>
                       )}
 
-                      {/* Pemilik: Batalkan Tagihan (hanya jika belum bayar sama sekali) */}
+                      {/* Pemilik: batalkan tagihan menggantikan Bayar Online —
+                          status berubah menjadi "Dibatalkan" otomatis di sistem
+                          (hanya tagihan yang belum dibayar sama sekali) */}
                       {role === 'pemilik' && inv.terbayar === 0 && inv.status !== 'dibatalkan' && (
                         <button
                           onClick={() => {
                             setCancelingInvoice(inv);
                             setInvoiceCancelError(null);
                           }}
-                          title="Batalkan tagihan yang belum dibayar"
-                          className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-medium border border-rose-200"
+                          title="Batalkan tagihan yang belum dibayar (status menjadi Dibatalkan)"
+                          className="px-3 py-1.5 text-xs bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-semibold shadow-sm transition-colors flex items-center gap-1"
                         >
-                          <Ban className="w-3.5 h-3.5" />
+                          Batalkan
                         </button>
                       )}
                     </div>
