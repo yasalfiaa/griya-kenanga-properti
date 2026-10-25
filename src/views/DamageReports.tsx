@@ -45,7 +45,7 @@ const TAB_STATUS = [
 type TabStatus = (typeof TAB_STATUS)[number]['nilai'];
 /** Kategori filter memakai NILAI data dummy (air/listrik/ac/perabot/bangunan),
  *  dengan label ramah yang mencakup nama kategori yang diminta pengguna. */
-type KategoriFilter = 'semua' | 'air' | 'listrik' | 'ac' | 'perabot' | 'bangunan';
+type KategoriFilter = 'semua' | 'air' | 'listrik' | 'ac' | 'perabot' | 'bangunan' | 'lainnya';
 
 export const DamageReports: React.FC = () => {
   const { currentUser, role } = useAuth();
@@ -68,9 +68,16 @@ export const DamageReports: React.FC = () => {
   const [createModalError, setCreateModalError] = useState<string | null>(null);
 
   // Modal Proses Laporan (Pengelola)
+  // estimasiBiaya memakai string agar field kosong saat modal dibuka
+  // (tidak ada angka 0 muncul di depan), dikonversi ke Number saat submit.
   const [processingReport, setProcessingReport] = useState<LaporanKerusakan | null>(null);
-  const [estimasiBiaya, setEstimasiBiaya] = useState<number>(100000);
+  const [estimasiBiaya, setEstimasiBiaya] = useState<string>('');
   const [processModalError, setProcessModalError] = useState<string | null>(null);
+
+  // Modal Tolak Laporan (Pengelola) — alasan penolakan wajib (textarea)
+  const [rejectingReport, setRejectingReport] = useState<LaporanKerusakan | null>(null);
+  const [alasanTolak, setAlasanTolak] = useState('');
+  const [rejectModalError, setRejectModalError] = useState<string | null>(null);
 
   // Logika filter berlapis: data harus memenuhi SEMUA kondisi sekaligus —
   // hak akses peran (RLS-ekuivalen) DAN tab status DAN kategori.
@@ -183,27 +190,67 @@ export const DamageReports: React.FC = () => {
     }
   };
 
-  const handleProcessReport = () => {
+  const handleProcessReport = async () => {
     if (!processingReport || !currentUser) return;
     try {
       setProcessModalError(null);
-      dataStore.processDamageReport(processingReport.id, estimasiBiaya, currentUser);
+      // Konversi string input → Number; bila kosong/invalid, tolak sebelum ke service
+      const biaya = Number(estimasiBiaya);
+      if (estimasiBiaya.trim() === '' || !Number.isFinite(biaya) || biaya <= 0) {
+        setProcessModalError('Estimasi biaya wajib diisi dengan angka lebih dari 0.');
+        return;
+      }
+      await dataStore.processDamageReport(processingReport.id, biaya, currentUser);
       setReports(dataStore.getDamageReports());
       setMessage({
         type: 'success',
-        text: `Laporan ${processingReport.nomor} berhasil diproses dengan estimasi biaya ${formatRupiah(estimasiBiaya)} (${estimasiBiaya > 1000000 ? 'Status: Menunggu Persetujuan Pemilik' : 'Status: Diproses'}).`,
+        text: `Laporan ${processingReport.nomor} berhasil diproses dengan estimasi biaya ${formatRupiah(biaya)} (${biaya > 1000000 ? 'Status: Menunggu Persetujuan Pemilik' : 'Status: Diproses'}).`,
       });
       setProcessingReport(null);
+      setEstimasiBiaya('');
       setProcessModalError(null);
     } catch (err: any) {
       setProcessModalError(parseErrorMessage(err));
     }
   };
 
-  const handleApproveReport = (report: LaporanKerusakan) => {
+  const handleRejectReport = async () => {
+    if (!rejectingReport || !currentUser) return;
+    try {
+      setRejectModalError(null);
+      await dataStore.rejectDamageReport(rejectingReport.id, alasanTolak, currentUser);
+      setReports(dataStore.getDamageReports());
+      setMessage({
+        type: 'error',
+        text: `Laporan ${rejectingReport.nomor} ditolak Pengelola. Alasan: ${alasanTolak.trim()}`,
+      });
+      setRejectingReport(null);
+      setAlasanTolak('');
+      setRejectModalError(null);
+    } catch (err: any) {
+      setRejectModalError(parseErrorMessage(err));
+    }
+  };
+
+  /** Pengelola menandai laporan 'diproses' selesai dikerjakan → status 'selesai'. */
+  const handleCompleteReport = async (report: LaporanKerusakan) => {
     if (!currentUser) return;
     try {
-      dataStore.approveDamageReport(report.id, currentUser);
+      await dataStore.completeDamageReport(report.id, currentUser);
+      setReports(dataStore.getDamageReports());
+      setMessage({
+        type: 'success',
+        text: `Laporan ${report.nomor} ditandai selesai dikerjakan. Laporan kini dapat ditutup resmi.`,
+      });
+    } catch (err: any) {
+      setMessage({ type: 'error', text: parseErrorMessage(err) });
+    }
+  };
+
+  const handleApproveReport = async (report: LaporanKerusakan) => {
+    if (!currentUser) return;
+    try {
+      await dataStore.approveDamageReport(report.id, currentUser);
       setReports(dataStore.getDamageReports());
       setMessage({
         type: 'success',
@@ -214,10 +261,10 @@ export const DamageReports: React.FC = () => {
     }
   };
 
-  const handleCloseReport = (report: LaporanKerusakan) => {
+  const handleCloseReport = async (report: LaporanKerusakan) => {
     if (!currentUser) return;
     try {
-      dataStore.closeDamageReport(report.id, currentUser);
+      await dataStore.closeDamageReport(report.id, currentUser);
       setReports(dataStore.getDamageReports());
       setMessage({
         type: 'success',
@@ -240,6 +287,8 @@ export const DamageReports: React.FC = () => {
         return <Badge variant="emerald">Selesai (Siap Ditutup)</Badge>;
       case 'ditutup':
         return <Badge variant="muted">Ditutup</Badge>;
+      case 'ditolak':
+        return <Badge variant="rose">Ditolak</Badge>;
       default:
         return <Badge variant="slate">{status}</Badge>;
     }
@@ -254,7 +303,7 @@ export const DamageReports: React.FC = () => {
             <Wrench className="w-6 h-6 text-primary" /> Laporan Kerusakan & Perbaikan Unit
           </h1>
           <p className="text-sm text-muted-foreground">
-            Biaya di atas Rp1.000.000 wajib persetujuan Pemilik. Maksimal 3 laporan terbuka per penyewa.
+            Pantau dan kelola pengajuan perbaikan fasilitas unit.
           </p>
         </div>
 
@@ -334,6 +383,7 @@ export const DamageReports: React.FC = () => {
               <SelectItem value="ac">Elektronik / AC</SelectItem>
               <SelectItem value="perabot">Perabot</SelectItem>
               <SelectItem value="bangunan">Bangunan</SelectItem>
+              <SelectItem value="lainnya">Lainnya</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -377,6 +427,13 @@ export const DamageReports: React.FC = () => {
                 </p>
               )}
 
+              {/* Alasan penolakan — ditampilkan agar penyewa memahami keputusan */}
+              {r.status === 'ditolak' && r.alasan_penolakan && (
+                <p className="text-xs text-rose-700 bg-rose-50 p-2.5 rounded-xl border border-rose-200">
+                  <span className="font-semibold">Alasan penolakan:</span> {r.alasan_penolakan}
+                </p>
+              )}
+
               <div className="text-xs text-muted-foreground space-y-1 pt-2">
                 <div className="flex justify-between">
                   <span>Kategori:</span>
@@ -416,26 +473,48 @@ export const DamageReports: React.FC = () => {
 
             {/* Action Buttons */}
             <div className="pt-3 border-t border-border flex items-center justify-end gap-2">
-              {/* Pengelola: Input Estimasi Biaya */}
+              {/* Pengelola: Input Estimasi Biaya / Tolak */}
               {role === 'pengelola' && r.status === 'dilaporkan' && (
-                <button
-                  onClick={() => {
-                    setProcessingReport(r);
-                    setEstimasiBiaya(100000);
-                  }}
-                  className="px-3 py-1.5 text-xs bg-primary hover:bg-primary/90 text-white rounded-lg font-semibold shadow-sm"
-                >
-                  Proses & Isi Biaya
-                </button>
+                <>
+                  <button
+                    onClick={() => {
+                      setProcessingReport(r);
+                      setEstimasiBiaya('');
+                    }}
+                    className="px-3 py-1.5 text-xs bg-primary hover:bg-primary/90 text-white rounded-lg font-semibold shadow-sm"
+                  >
+                    Proses & Isi Biaya
+                  </button>
+                  <button
+                    onClick={() => {
+                      setRejectingReport(r);
+                      setAlasanTolak('');
+                      setRejectModalError(null);
+                    }}
+                    className="px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-lg font-semibold transition-colors"
+                  >
+                    Tolak
+                  </button>
+                </>
               )}
 
               {/* Pemilik: Setujui Biaya > 1.000.000 (BR-12) */}
               {role === 'pemilik' && r.status === 'menunggu_persetujuan' && (
                 <button
                   onClick={() => handleApproveReport(r)}
-                  className="px-3 py-1.5 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold shadow-sm flex items-center gap-1"
+                  className="px-3 py-1.5 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold shadow-sm"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5" /> Setujui Biaya ({formatRupiah(r.estimasi_biaya || 0)})
+                  Setujui Biaya
+                </button>
+              )}
+
+              {/* Pengelola: Tandai Selesai (diproses → selesai), di kiri Tutup Laporan */}
+              {role === 'pengelola' && r.status === 'diproses' && (
+                <button
+                  onClick={() => handleCompleteReport(r)}
+                  className="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold shadow-sm"
+                >
+                  Selesai
                 </button>
               )}
 
@@ -478,11 +557,15 @@ export const DamageReports: React.FC = () => {
                   onChange={(e) => setKategori(e.target.value)}
                   className="w-full text-xs border border-border rounded-xl px-3 py-2 focus:ring-2 focus:ring-ring focus:outline-none"
                 >
+                  {/* Nilai WAJIB sama dengan kategori di data contoh/database
+                      (air/listrik/ac/perabot/bangunan/lainnya) agar filter
+                      kategori bisa melacak laporan baru */}
                   <option value="air">Sanitasi / Pipa Air</option>
                   <option value="listrik">Listrik & Lampu</option>
                   <option value="ac">AC & Pendingin</option>
-                  <option value="furniture">Perabot & Pintu</option>
-                  <option value="struktur">Tembok / Atap Bocor</option>
+                  <option value="perabot">Perabot & Pintu</option>
+                  <option value="bangunan">Tembok / Atap Bocor</option>
+                  <option value="lainnya">Lainnya</option>
                 </select>
               </div>
 
@@ -604,9 +687,14 @@ export const DamageReports: React.FC = () => {
               <input
                 type="number"
                 step="50000"
+                min="0"
+                placeholder="Contoh: 500000"
                 value={estimasiBiaya}
                 onChange={(e) => {
-                  setEstimasiBiaya(Number(e.target.value));
+                  // Number() menghapus 0 di depan (mis. "0500000" → "500000")
+                  // dan menjaga fokus pada angka valid saja.
+                  const raw = e.target.value;
+                  setEstimasiBiaya(raw === '' ? '' : /^[0-9]+$/.test(raw) ? String(Number(raw)) : raw);
                   if (processModalError) setProcessModalError(null);
                 }}
                 className="w-full text-sm font-semibold border border-border rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-ring focus:outline-none"
@@ -628,6 +716,63 @@ export const DamageReports: React.FC = () => {
                 className="px-4 py-2 text-sm bg-primary hover:bg-primary/90 text-white rounded-xl font-semibold shadow-sm"
               >
                 Simpan & Lanjutkan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal Tolak Laporan (Pengelola) — alasan penolakan wajib */}
+      {rejectingReport && (
+        <div className="fixed inset-0 bg-foreground/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <h3 className="font-bold text-foreground text-lg">Tolak Laporan {rejectingReport.nomor}</h3>
+            <p className="text-xs text-muted-foreground">
+              Laporan akan berstatus Ditolak dan tidak dikerjakan. Sertakan alasan yang jelas agar penyewa memahami keputusan ini.
+            </p>
+
+            {/* Error Alert Standar Modal */}
+            <ModalErrorAlert
+              error={rejectModalError}
+              onDismiss={() => setRejectModalError(null)}
+            />
+
+            <div>
+              <label className="text-xs font-semibold text-foreground block mb-1">
+                Alasan Penolakan <span className="text-rose-600">*</span>
+              </label>
+              <textarea
+                rows={3}
+                value={alasanTolak}
+                onChange={(e) => {
+                  setAlasanTolak(e.target.value);
+                  if (rejectModalError) setRejectModalError(null);
+                }}
+                placeholder="Contoh: Kerusakan bukan tanggung jawab pengelola karena terjadi setelah perubahan yang dilakukan penyewa..."
+                aria-label="Alasan penolakan laporan"
+                className="w-full text-xs border border-border rounded-xl p-2.5 focus:ring-2 focus:ring-ring focus:outline-none resize-none"
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Wajib diisi, minimal 10 karakter.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => {
+                  setRejectingReport(null);
+                  setAlasanTolak('');
+                  setRejectModalError(null);
+                }}
+                className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-xl font-medium"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleRejectReport}
+                disabled={alasanTolak.trim().length < 10}
+                className="px-4 py-2 text-sm bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-semibold shadow-sm"
+              >
+                Tolak Laporan
               </button>
             </div>
           </div>

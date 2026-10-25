@@ -662,25 +662,29 @@ class DataStore {
     }
   }
 
-  /** Masukkan ke laporan kerusakan ke Supabase (dipanggil setelah rekam lokal) */
-  private async persistDamageReport(report: LaporanKerusakan): Promise<void> {
-    if (!isSupabaseConfigured) return;
-    const { error } = await supabase.from('laporan_kerusakan').insert({
-      id: report.id,
-      nomor: report.nomor,
-      kontrak_id: report.kontrak_id,
-      unit_id: report.unit_id,
-      pelapor_id: report.pelapor_id,
-      kategori: report.kategori,
-      judul: report.judul,
-      deskripsi: report.deskripsi,
-      foto_paths: report.foto_paths,
-      status: report.status,
-      dibuat_pada: report.dibuat_pada,
-    });
-    if (error) {
-      console.warn('Laporan tersimpan lokal, namun gagal sinkron ke Supabase:', error.message);
+  /** Nomor laporan kerusakan: diminta dari SERVER lewat fungsi thread-safe
+   *  generate_nomor_urut (BR-06) agar tidak bentrok dengan nomor di database
+   *  yang tidak terlihat oleh penyewa (RLS). Fallback: penomoran lokal. */
+  private async nomorLaporanBerikutnya(): Promise<{ nomor: string; tahun: string; dariServer: boolean }> {
+    // Demo memakai tanggal acuan 2026
+    const tahun = '2026';
+    try {
+      const { data, error } = await supabase.rpc('generate_nomor_urut', {
+        p_jenis: 'LK',
+        p_periode: tahun,
+      });
+      if (!error && typeof data === 'string' && data.startsWith('LK-')) {
+        return { nomor: data, tahun, dariServer: true };
+      }
+      console.warn('Nomor via generate_nomor_urut gagal, memakai fallback lokal:', error?.message);
+    } catch (e) {
+      console.warn('RPC generate_nomor_urut tidak tersedia:', e);
     }
+    return {
+      nomor: `LK-${tahun}-${String(this.kerusakan.length + 1).padStart(4, '0')}`,
+      tahun,
+      dariServer: false,
+    };
   }
 
   // --- LAPORAN KERUSAKAN ---
@@ -723,12 +727,11 @@ class DataStore {
       throw new Error('Anda sudah memiliki 3 laporan kerusakan yang masih terbuka. Harap selesaikan atau tunggu laporan sebelumnya ditutup terlebih dahulu.');
     }
 
-    const seq = this.kerusakan.length + 1;
-    const nomor = `LK-2026-${String(seq).padStart(4, '0')}`;
+    // Nomor thread-safe dari server (fallback lokal bila RPC gagal)
+    const { nomor: nomorAwal, tahun } = await this.nomorLaporanBerikutnya();
 
-    const report: LaporanKerusakan = {
+    const dasar: Omit<LaporanKerusakan, 'nomor'> = {
       id: crypto.randomUUID(),
-      nomor,
       kontrak_id: activeContract.id,
       unit_id: data.unit_id,
       pelapor_id: data.actor.id,
@@ -740,16 +743,67 @@ class DataStore {
       dibuat_pada: new Date().toISOString(),
     };
 
-    this.kerusakan.push(report);
+    // Simpan ke SERVER terlebih dahulu — kegagalan tidak boleh di-swallow
+    // (dulu berujung "tersimpan lokal namun hilang setelah reload").
+    let nomorFinal = nomorAwal;
+    if (isSupabaseConfigured) {
+      let nomor = nomorAwal;
+      // Bila nomor bentrok (23505) dengan baris yang tak terlihat penyewa,
+      // coba nomor urut berikutnya (maks 20 upaya).
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const reportCoba = { ...dasar, nomor };
+        const { error } = await supabase.from('laporan_kerusakan').insert({
+          id: reportCoba.id,
+          nomor: reportCoba.nomor,
+          kontrak_id: reportCoba.kontrak_id,
+          unit_id: reportCoba.unit_id,
+          pelapor_id: reportCoba.pelapor_id,
+          kategori: reportCoba.kategori,
+          judul: reportCoba.judul,
+          deskripsi: reportCoba.deskripsi,
+          foto_paths: reportCoba.foto_paths,
+          status: reportCoba.status,
+          dibuat_pada: reportCoba.dibuat_pada,
+        });
+        if (!error) {
+          nomorFinal = nomor;
+          break;
+        }
+        const bentrokNomor =
+          error.code === '23505' || /duplicate key|unique constraint/i.test(error.message || '');
+        if (bentrokNomor && attempt < 19) {
+          const urut = parseInt(nomor.split('-')[2] || '0', 10) + 1;
+          nomor = `LK-${tahun}-${String(urut).padStart(4, '0')}`;
+          continue;
+        }
+        throw new Error(`Gagal menyimpan laporan ke server: ${error.message}`);
+      }
+    }
 
-    // Sinkronisasi ke Supabase (didegradasi ke lokal bila gagal)
-    await this.persistDamageReport(report);
+    // Rekam ke memori HANYA setelah server mengkonfirmasi tersimpan,
+    // memakai nomor final yang benar-benar tersimpan di server.
+    const report: LaporanKerusakan = { ...dasar, nomor: nomorFinal };
+    this.kerusakan.push(report);
 
     this.logAudit(data.actor, 'buat:laporan_kerusakan', 'laporan_kerusakan', report.id, null, report);
     return report;
   }
 
-  public processDamageReport(reportId: string, estimasiBiaya: number, actor: Profile): void {
+  /** Sinkronkan perubahan laporan kerusakan ke server SEBELUM mutasi memori.
+   *  Keagalan di-throw ke UI (tidak di-swallow) agar tidak ada perubahan
+   *  status yang "siluman" — hilang setelah reload. */
+  private async sinkronKerusakanKeServer(
+    reportId: string,
+    fields: Partial<Pick<LaporanKerusakan, 'status' | 'estimasi_biaya' | 'biaya_aktual' | 'disetujui_oleh' | 'selesai_pada' | 'alasan_penolakan'>>
+  ): Promise<void> {
+    if (!isSupabaseConfigured) return;
+    const { error } = await supabase.from('laporan_kerusakan').update(fields).eq('id', reportId);
+    if (error) {
+      throw new Error(`Gagal menyimpan perubahan status laporan ke server: ${error.message}`);
+    }
+  }
+
+  public async processDamageReport(reportId: string, estimasiBiaya: number, actor: Profile): Promise<void> {
     if (actor.peran !== 'pengelola') {
       throw new Error('Hanya Pengelola yang berhak memproses laporan kerusakan.');
     }
@@ -757,36 +811,89 @@ class DataStore {
     const r = this.kerusakan.find(item => item.id === reportId);
     if (!r) throw new Error('Laporan tidak ditemukan');
 
-    r.estimasi_biaya = estimasiBiaya;
-
     // Estimasi di atas Rp1.000.000 wajib persetujuan Pemilik
-    if (estimasiBiaya > 1000000) {
-      r.status = 'menunggu_persetujuan';
-    } else {
-      r.status = 'diproses';
-    }
+    const statusBaru = estimasiBiaya > 1000000 ? 'menunggu_persetujuan' : 'diproses';
 
-    this.logAudit(actor, 'proses:laporan_kerusakan', 'laporan_kerusakan', reportId, null, { estimasiBiaya, status: r.status });
+    // Simpan ke server dahulu (throw bila gagal), baru mutasi memori
+    await this.sinkronKerusakanKeServer(reportId, { status: statusBaru, estimasi_biaya: estimasiBiaya });
+    r.estimasi_biaya = estimasiBiaya;
+    r.status = statusBaru;
+
+    this.logAudit(actor, 'proses:laporan_kerusakan', 'laporan_kerusakan', reportId, null, { estimasiBiaya, status: statusBaru });
   }
 
-  public approveDamageReport(reportId: string, actor: Profile): void {
+  /** Pengelola menolak laporan (hanya dari status 'dilaporkan').
+   *  Alasan penolakan wajib — tersimpan di kolom alasan_penolakan. */
+  public async rejectDamageReport(reportId: string, alasan: string, actor: Profile): Promise<void> {
+    if (actor.peran !== 'pengelola') {
+      throw new Error('Hanya Pengelola yang berhak menolak laporan kerusakan.');
+    }
+
+    const alasanFinal = alasan.trim();
+    if (alasanFinal.length < 10) {
+      throw new Error('Alasan penolakan wajib diisi (minimal 10 karakter) agar penyewa memahami keputusan.');
+    }
+
+    const r = this.kerusakan.find(item => item.id === reportId);
+    if (!r) throw new Error('Laporan tidak ditemukan');
+    if (r.status !== 'dilaporkan') {
+      throw new Error('Hanya laporan berstatus Dilaporkan yang dapat ditolak.');
+    }
+
+    // Simpan ke server dahulu (throw bila gagal), baru mutasi memori
+    const statusLama = r.status;
+    await this.sinkronKerusakanKeServer(reportId, { status: 'ditolak', alasan_penolakan: alasanFinal });
+    r.status = 'ditolak';
+    r.alasan_penolakan = alasanFinal;
+
+    this.logAudit(actor, 'tolak:laporan_kerusakan', 'laporan_kerusakan', reportId, { status: statusLama }, { status: 'ditolak', alasan: alasanFinal });
+  }
+
+  /** Pengelola menandai laporan 'diproses' sebagai selesai dikerjakan.
+   *  Laporan berstatus 'selesai' dan siap ditutup resmi (BR-12). */
+  public async completeDamageReport(reportId: string, actor: Profile): Promise<void> {
+    if (actor.peran !== 'pengelola') {
+      throw new Error('Hanya Pengelola yang berhak menandai laporan selesai.');
+    }
+
+    const r = this.kerusakan.find(item => item.id === reportId);
+    if (!r) throw new Error('Laporan tidak ditemukan');
+    if (r.status !== 'diproses') {
+      throw new Error('Hanya laporan berstatus Diproses yang dapat ditandai selesai.');
+    }
+
+    // Simpan ke server dahulu (throw bila gagal), baru mutasi memori
+    const statusLama = r.status;
+    const selesaiPada = new Date().toISOString();
+    await this.sinkronKerusakanKeServer(reportId, { status: 'selesai', selesai_pada: selesaiPada });
+    r.status = 'selesai';
+    r.selesai_pada = selesaiPada;
+
+    this.logAudit(actor, 'selesai:laporan_kerusakan', 'laporan_kerusakan', reportId, { status: statusLama }, { status: 'selesai' });
+  }
+
+  public async approveDamageReport(reportId: string, actor: Profile): Promise<void> {
     if (actor.peran !== 'pemilik') {
       throw new Error('Hanya Pemilik yang berhak menyetujui biaya perbaikan besar.');
     }
     const r = this.kerusakan.find(item => item.id === reportId);
     if (!r) throw new Error('Laporan tidak ditemukan');
 
+    // Simpan ke server dahulu (throw bila gagal), baru mutasi memori
+    await this.sinkronKerusakanKeServer(reportId, { status: 'diproses', disetujui_oleh: actor.id });
     r.status = 'diproses';
     r.disetujui_oleh = actor.id;
 
     this.logAudit(actor, 'setujui:laporan_kerusakan', 'laporan_kerusakan', reportId, null, { status: 'diproses' });
   }
 
-  public closeDamageReport(reportId: string, actor: Profile): void {
+  public async closeDamageReport(reportId: string, actor: Profile): Promise<void> {
     const r = this.kerusakan.find(item => item.id === reportId);
     if (!r) throw new Error('Laporan tidak ditemukan');
 
     // BR-12: Ditutup oleh penyewa pelapor, atau Pengelola setelah selesai
+    // Simpan ke server dahulu (throw bila gagal), baru mutasi memori
+    await this.sinkronKerusakanKeServer(reportId, { status: 'ditutup' });
     r.status = 'ditutup';
     this.logAudit(actor, 'tutup:laporan_kerusakan', 'laporan_kerusakan', reportId, null, { status: 'ditutup' });
   }
