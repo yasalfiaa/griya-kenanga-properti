@@ -427,10 +427,16 @@ class DataStore {
         throw new Error(error.message);
       }
       const row = Array.isArray(res) ? res[0] : res;
-      if (!row || typeof row.out_dibuat !== 'number') {
-        throw new Error('Respons database tidak sesuai saat membuat tagihan bulanan.');
+      // out_dibuat bernilai NULL bila SEMUA tagihan periode ini sudah ada
+      // sebelumnya (dilewati fungsi DB, BUKAN ditolak) — perlakukan sebagai 0.
+      const dibuat = typeof row?.out_dibuat === 'number' ? row.out_dibuat : 0;
+      const dilewati = typeof row?.out_dilewati === 'number' ? row.out_dilewati : 0;
+      if (row && typeof row === 'object') {
+        return { dibuat, dilewati };
       }
-      return { dibuat: row.out_dibuat, dilewati: row.out_dilewati || 0 };
+      throw new Error(
+        'Tagihan untuk periode ini sudah pernah dibuat. Tidak ada tagihan baru yang ditambahkan.'
+      );
     }
 
     // ---- Fallback mode demo (tanpa Supabase tetap jalan) ----

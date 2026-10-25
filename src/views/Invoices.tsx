@@ -354,12 +354,11 @@ export const Invoices: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
-            <Receipt className="w-6 h-6 text-primary" />
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">
             {role === 'penyewa' ? 'Tagihan Sewa Saya' : 'Tagihan Bulanan & Kas Pembayaran'}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Jatuh tempo tanggal 10. Denda Rp20.000/hari (maks Rp200.000 per tagihan).
+            Ketentuan Pembayaran: Jatuh tempo setiap tanggal 10 dengan denda keterlambatan Rp20.000/hari.
           </p>
         </div>
 
@@ -765,9 +764,7 @@ export const Invoices: React.FC = () => {
               <PlusCircle className="w-5 h-5 text-primary" /> Buat Tagihan Bulanan
             </h3>
             <p className="text-xs text-muted-foreground">
-              Akan dibuat tagihan untuk semua kontrak berstatus aktif yang mencakup periode yang dipilih. Jatuh tempo
-              selalu tanggal 10 (BR-06), nominal mengikuti harga sewa yang terkunci di kontrak. Proses ini aman dari
-              tagihan ganda — jika tagihan periode yang sama sudah ada, otomatis dilewati.
+              Pilih periode yang ingin anda buat.
             </p>
 
             {/* Error Alert Standar Modal: kegagalan tidak di-swallow */}
@@ -778,7 +775,7 @@ export const Invoices: React.FC = () => {
 
             <div>
               <label className="text-xs font-semibold text-foreground block mb-1">
-                Periode Tagihan (selalu tanggal 1)
+                Periode Tagihan
               </label>
               <input
                 type="month"
