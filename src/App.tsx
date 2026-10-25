@@ -1,7 +1,7 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { ProtectedRoute } from './components/ProtectedRoute';
+import { ProtectedRoute, loginPathDenganRedirect } from './components/ProtectedRoute';
 import { SkeletonLoadingPage } from './components/ui/skeleton';
 import { SidebarInset, SidebarProvider } from './components/ui/sidebar';
 import { AppSidebar } from './components/ui/app-sidebar';
@@ -22,13 +22,15 @@ import { Register } from './views/Register';
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, isLoading } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return <SkeletonLoadingPage />;
   }
 
   if (!currentUser) {
-    return <Navigate to="/login" replace />;
+    // Bawa URL yang dicoba diakses agar setelah login pengguna kembali ke sini
+    return <Navigate to={loginPathDenganRedirect(location.pathname, location.search)} replace />;
   }
 
   return (

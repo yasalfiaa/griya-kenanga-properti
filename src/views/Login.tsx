@@ -1,27 +1,38 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Home, Lock, Mail, Users, ArrowRight, ShieldCheck } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const { loginAs, currentUser } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('ratna@griyakenanga.test');
   const [password, setPassword] = useState('Latihan#2026');
   const [error, setError] = useState('');
 
+  // Tujuan setelah login: parameter ?redirect= bila ada dan aman (path internal),
+  // selain itu beranda seperti semula.
+  const tujuanSetelahLogin = React.useMemo(() => {
+    const redirect = searchParams.get('redirect');
+    if (redirect && redirect.startsWith('/') && !redirect.startsWith('//')) {
+      return redirect;
+    }
+    return '/';
+  }, [searchParams]);
+
   // Bila pengguna sudah mempunyai sesi (sesi terpulihkan atau baru login),
-  // langsung arahkan ke beranda.
+  // arahkan ke halaman yang diminta (atau beranda bila bukan hasil guard).
   React.useEffect(() => {
-    if (currentUser) navigate('/', { replace: true });
-  }, [currentUser, navigate]);
+    if (currentUser) navigate(tujuanSetelahLogin, { replace: true });
+  }, [currentUser, navigate, tujuanSetelahLogin]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     const res = await loginAs(email, password);
     if (res.success) {
-      navigate('/');
+      navigate(tujuanSetelahLogin, { replace: true });
     } else {
       setError(res.message || 'Email atau kata sandi tidak ditemukan.');
     }
@@ -33,7 +44,7 @@ export const Login: React.FC = () => {
     setError('');
     const res = await loginAs(quickEmail, 'Latihan#2026');
     if (res.success) {
-      navigate('/');
+      navigate(tujuanSetelahLogin, { replace: true });
     } else {
       setError(res.message || 'Gagal masuk dengan akun uji.');
     }

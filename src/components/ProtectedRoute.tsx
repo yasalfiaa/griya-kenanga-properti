@@ -1,8 +1,13 @@
 import React from 'react';
-import { Navigate, Link } from 'react-router-dom';
+import { Navigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { RoleType } from '../types/database';
 import { ShieldAlert, ArrowLeft } from 'lucide-react';
+
+/** Path login dengan parameter redirect agar setelah login pengguna kembali
+ *  ke halaman yang semula ingin diakses (bukan selalu beranda). */
+export const loginPathDenganRedirect = (pathname: string, search: string): string =>
+  `/login?redirect=${encodeURIComponent(pathname + search)}`;
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -11,6 +16,7 @@ interface ProtectedRouteProps {
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
   const { currentUser, role, isLoading } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -23,9 +29,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowe
     );
   }
 
-  // Belum login -> Arahkan ke /login
+  // Belum login -> Arahkan ke /login sambil membawa URL yang dicoba diakses
   if (!currentUser) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={loginPathDenganRedirect(location.pathname, location.search)} replace />;
   }
 
   // Jika ada pembatasan peran dan peran saat ini tidak diizinkan -> Tampilkan layar 403 Akses Ditolak
