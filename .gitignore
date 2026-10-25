@@ -30,3 +30,8 @@ supabase/.env.mayar
 
 # Superpowers temporary workspace
 .superpowers/
+
+# Next.js build output & build info
+.next
+*.tsbuildinfo
+
