@@ -299,8 +299,8 @@ export const DamageReports: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
-            <Wrench className="w-6 h-6 text-primary" /> Laporan Kerusakan & Perbaikan Unit
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">
+            Laporan Kerusakan & Perbaikan Unit
           </h1>
           <p className="text-sm text-muted-foreground">
             Pantau dan kelola pengajuan perbaikan fasilitas unit.

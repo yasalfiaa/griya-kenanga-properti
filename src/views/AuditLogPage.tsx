@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { dataStore } from '../api/data-service';
-import { ShieldAlert, AlertCircle, Search } from 'lucide-react';
+import { AlertCircle, Search } from 'lucide-react';
 
 export const AuditLogPage: React.FC = () => {
   const { role } = useAuth();
@@ -33,8 +33,8 @@ export const AuditLogPage: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
-          <ShieldAlert className="w-6 h-6 text-purple-600" /> Jejak Rekam Sistem (Audit Log)
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">
+          Jejak Rekam Sistem (Audit Log)
         </h1>
         <p className="text-sm text-muted-foreground">
           Mencatat semua aksi sensitif: aktivasi/pengakhiran kontrak, pencatatan/pembatalan bayar, ubah harga & status, verifikasi KTP (Tanpa NIK & KTP rahasia).

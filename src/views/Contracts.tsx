@@ -202,8 +202,8 @@ export const Contracts: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
-            <FileText className="w-6 h-6 text-primary" /> Pengelolaan Kontrak Sewa
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">
+            Pengelolaan Kontrak Sewa
           </h1>
           <p className="text-sm text-muted-foreground">
             Penegakan aturan kontrak tunggal, tanggal mulai tanggal 1, dan pencegahan overlap tanggal sewa.

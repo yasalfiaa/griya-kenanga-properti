@@ -134,8 +134,8 @@ export const Units: React.FC = () => {
       {!tipeAktif && (
         <>
           <div>
-            <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
-              <Building2 className="w-6 h-6 text-primary" /> Daftar Unit (24 Kamar)
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">
+              Daftar Unit (24 Kamar)
             </h1>
             <p className="text-sm text-muted-foreground">
               Pilih tipe unit untuk melihat daftar kamar.
@@ -215,8 +215,8 @@ export const Units: React.FC = () => {
 
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
-                <Building2 className="w-6 h-6 text-primary" /> {tipeAktif.judul}
+              <h1 className="text-2xl font-bold text-foreground tracking-tight">
+                {tipeAktif.judul}
               </h1>
               <p className="text-sm text-muted-foreground">
                 Blok {tipeAktif.prefix} · Luas {rentangLuas(kamarsByTipe)} · {kamarsByTipe.length} kamar · sewa {hargaMulai(kamarsByTipe)}.

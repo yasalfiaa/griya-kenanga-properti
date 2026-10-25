@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { dataStore } from '../api/data-service';
 import { MOCK_PROFILES } from '../data/mock-data';
 import { Profile, RoleType } from '../types/database';
-import { UserCheck, Shield, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Shield, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export const RoleManagement: React.FC = () => {
   const { currentUser, role } = useAuth();
@@ -42,8 +42,8 @@ export const RoleManagement: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
-          <UserCheck className="w-6 h-6 text-purple-600" /> Pengaturan Hak Akses & Peran Akun
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">
+          Pengaturan Hak Akses & Peran Akun
         </h1>
         <p className="text-sm text-muted-foreground">
           Akun baru yang mendaftar sendiri otomatis Penyewa. Peran Pengelola dan Pemilik hanya bisa diberikan oleh Pemilik.

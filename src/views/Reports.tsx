@@ -3,7 +3,6 @@ import { useAuth } from '../context/AuthContext';
 import { dataStore } from '../api/data-service';
 import { formatRupiah } from '../utils/business-rules';
 import {
-  BarChart3,
   Download,
   Calendar,
   Building2,
@@ -108,8 +107,8 @@ export const Reports: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
-            <BarChart3 className="w-6 h-6 text-purple-600" /> Laporan Eksekutif Pendapatan & Hunian
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">
+            Laporan Eksekutif Pendapatan & Hunian
           </h1>
           <p className="text-sm text-muted-foreground">
             Analisis arus kas sewa, tunggakan per unit, dan tingkat keterisian (Khusus Pemilik).

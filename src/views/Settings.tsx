@@ -12,7 +12,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../api/supabase';
 import {
-  Settings as SettingsIcon,
   CreditCard,
   Copy,
   Check,
@@ -121,8 +120,7 @@ export const Settings: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
-          <SettingsIcon className="w-6 h-6 text-primary" />
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">
           Setelan Sistem
         </h1>
         <p className="text-sm text-muted-foreground">

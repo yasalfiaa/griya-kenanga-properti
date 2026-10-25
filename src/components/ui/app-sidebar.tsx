@@ -157,7 +157,7 @@ export const AppSidebar: React.FC = () => {
 
         {role === 'pemilik' && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-foreground/80 font-semibold">Eksekutif Pemilik</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-foreground/80 font-semibold">Menu Pemilik</SidebarGroupLabel>
             <SidebarGroupContent>{renderGroup(MENU_PEMILIK)}</SidebarGroupContent>
           </SidebarGroup>
         )}
