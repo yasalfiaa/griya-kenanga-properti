@@ -14,6 +14,13 @@ import {
 import { ModalErrorAlert } from '../components/ModalErrorAlert';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 import { parseErrorMessage } from '../utils/error-handler';
 import {
   Wrench,
@@ -27,10 +34,27 @@ import {
   X,
 } from 'lucide-react';
 
+/** Opsi Tabs filter status — "semua" menampilkan seluruh data dummy apa adanya. */
+const TAB_STATUS = [
+  { nilai: 'semua', label: 'Semua' },
+  { nilai: 'menunggu_persetujuan', label: 'Menunggu Persetujuan' },
+  { nilai: 'diproses', label: 'Diproses' },
+  { nilai: 'selesai', label: 'Selesai' },
+] as const;
+
+type TabStatus = (typeof TAB_STATUS)[number]['nilai'];
+/** Kategori filter memakai NILAI data dummy (air/listrik/ac/perabot/bangunan),
+ *  dengan label ramah yang mencakup nama kategori yang diminta pengguna. */
+type KategoriFilter = 'semua' | 'air' | 'listrik' | 'ac' | 'perabot' | 'bangunan';
+
 export const DamageReports: React.FC = () => {
   const { currentUser, role } = useAuth();
   const [reports, setReports] = useState<LaporanKerusakan[]>(() => dataStore.getDamageReports());
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // === Filter berlapis (kombinasi): Tabs status + Select kategori ===
+  const [tabAktif, setTabAktif] = useState<TabStatus>('semua');
+  const [kategoriAktif, setKategoriAktif] = useState<KategoriFilter>('semua');
 
   // Modal Buat Laporan Baru (Penyewa)
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -48,12 +72,15 @@ export const DamageReports: React.FC = () => {
   const [estimasiBiaya, setEstimasiBiaya] = useState<number>(100000);
   const [processModalError, setProcessModalError] = useState<string | null>(null);
 
-  const filteredReports = reports.filter(r => {
-    if (role === 'penyewa') {
-      return r.pelapor_id === currentUser?.id;
-    }
-    return true;
-  });
+  // Logika filter berlapis: data harus memenuhi SEMUA kondisi sekaligus —
+  // hak akses peran (RLS-ekuivalen) DAN tab status DAN kategori.
+  // Data dummy tidak diubah; hanya fungsi .filter() pada daftar laporan.
+  const filteredReports = reports
+    .filter((r) => (role === 'penyewa' ? r.pelapor_id === currentUser?.id : true))
+    .filter((r) => (tabAktif === 'semua' ? true : r.status === tabAktif))
+    .filter((r) => (kategoriAktif === 'semua' ? true : r.kategori === kategoriAktif));
+
+  const adaFilterAktif = tabAktif !== 'semua' || kategoriAktif !== 'semua';
 
   const handleFilesSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files || []);
@@ -263,13 +290,66 @@ export const DamageReports: React.FC = () => {
         </div>
       )}
 
+      {/* ====== Header Card Filter: Tabs (kiri) + Select (kanan) ====== */}
+      <div className="bg-card rounded-2xl border border-border shadow-sm p-3 sm:p-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          {/* Tabs Filter Status — kiri (gaya /kontrak: aktif = hitam tanpa kolom abu) */}
+          <div className="flex gap-2 border-b border-border pb-2 text-xs font-semibold overflow-x-auto">
+            {TAB_STATUS.map((tab) => (
+              <button
+                key={tab.nilai}
+                onClick={() => setTabAktif(tab.nilai)}
+                className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                  tabAktif === tab.nilai
+                    ? 'bg-foreground text-white'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                }`}
+              >
+                {tab.label}
+                <span
+                  className={`ml-1 text-[10px] ${
+                    tabAktif === tab.nilai ? 'text-white/70' : 'text-muted-foreground'
+                  }`}
+                >
+                  {reports
+                    .filter((r) => (role === 'penyewa' ? r.pelapor_id === currentUser?.id : true))
+                    .filter((r) => (tab.nilai === 'semua' ? true : r.status === tab.nilai)).length}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Select Kategori — kanan */}
+          <Select value={kategoriAktif} onValueChange={(v) => setKategoriAktif(v as KategoriFilter)}>
+            <SelectTrigger
+              aria-label="Filter kategori laporan"
+              className="h-9 w-[180px] rounded-xl text-xs bg-muted focus:ring-0"
+            >
+              <SelectValue placeholder="Semua Kategori" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="semua">Semua Kategori</SelectItem>
+              <SelectItem value="air">Sanitasi / Pipa</SelectItem>
+              <SelectItem value="listrik">Listrik</SelectItem>
+              <SelectItem value="ac">Elektronik / AC</SelectItem>
+              <SelectItem value="perabot">Perabot</SelectItem>
+              <SelectItem value="bangunan">Bangunan</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       {/* Grid Laporan Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredReports.length === 0 && (
           <EmptyState
             icon={Wrench}
             title="Belum Ada Laporan Kerusakan"
-            description="Tidak ada laporan pada daftar ini. Laporan baru muncul setelah penyewa melaporkan kerusakan unit."
+            description={
+              adaFilterAktif
+                ? 'Tidak ada laporan yang cocok dengan kombinasi filter aktif (tab status dan kategori).'
+                : 'Tidak ada laporan pada daftar ini. Laporan baru muncul setelah penyewa melaporkan kerusakan unit.'
+            }
             className="md:col-span-2 lg:col-span-3"
           />
         )}
