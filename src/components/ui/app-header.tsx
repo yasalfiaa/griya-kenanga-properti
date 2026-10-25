@@ -7,6 +7,7 @@
  * Berlaku untuk menu semua peran karena dipasang di Layout utama aplikasi.
  */
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
 
 import { cn } from 'cn';
@@ -20,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge, type BadgeVariant } from '@/components/ui/Badge';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useAuth } from '@/context/AuthContext';
 
@@ -32,18 +34,31 @@ const initialsOf = (nama: string) =>
     .join('') || 'P';
 
 export const AppHeader: React.FC = () => {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, role, logout } = useAuth();
+  const location = useLocation();
 
   const nama = currentUser?.nama_lengkap || 'Pengguna';
   const email = currentUser?.email || '';
   const initials = initialsOf(nama);
+  const diBeranda = location.pathname === '/';
+
+  const peranInfo: Record<string, { label: string; variant: BadgeVariant }> = {
+    pemilik: { label: 'Pemilik', variant: 'purple' },
+    pengelola: { label: 'Pengelola', variant: 'emerald' },
+    penyewa: { label: 'Penyewa', variant: 'blue' },
+  };
+  const peran = peranInfo[role] ?? peranInfo.penyewa;
 
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center gap-3 border-b bg-background px-4 sm:px-6">
-      <SidebarTrigger aria-label="Buka/tutup menu navigasi" />
-      <h1 className="truncate text-lg font-semibold">
-        Selamat datang, {nama.split(' ')[0]}
-      </h1>
+      {/* Trigger hanya tampil di mobile; di desktop sidebar tidak pernah disembunyikan */}
+      <SidebarTrigger aria-label="Buka menu navigasi" className="md:hidden" />
+      {/* Salam hanya di beranda; halaman lain header lebih ringkas */}
+      {diBeranda && (
+        <h1 className="truncate text-lg font-semibold">
+          Selamat datang, {nama.split(' ')[0]}
+        </h1>
+      )}
 
       {/* Kanan: hanya avatar profil */}
       <div className="ml-auto flex items-center gap-1">
@@ -64,6 +79,12 @@ export const AppHeader: React.FC = () => {
             <DropdownMenuLabel className="px-3">
               <div className="truncate font-semibold text-sm">{nama}</div>
               <div className="truncate text-xs text-muted-foreground font-normal">{email}</div>
+              {/* Keterangan peran di bawah email — badge komponen existing */}
+              <div className="mt-1.5 flex">
+                <Badge variant={peran.variant} className="text-[10px]">
+                  {peran.label}
+                </Badge>
+              </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem

@@ -37,7 +37,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/context/AuthContext';
 import { dataStore } from '@/api/data-service';
@@ -99,30 +98,40 @@ export const AppSidebar: React.FC = () => {
 
   const renderGroup = (items: NavItem[]) => (
     <SidebarMenu>
-      {items.filter(tampil).map((item) => (
-        <SidebarMenuItem key={item.to}>
-          <SidebarMenuButton asChild isActive={isActive(item)} tooltip={labelItem(item)}>
-            <NavLink
-              to={item.to}
-              end={item.end}
-              className={({ isActive: linkActive }) =>
-                cn(
-                  linkActive &&
-                    'bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/90 data-active:bg-primary data-active:text-primary-foreground'
-                )
-              }
+      {items.filter(tampil).map((item) => {
+        const aktif = isActive(item);
+        return (
+          <SidebarMenuItem key={item.to}>
+            {/*
+              PENTING: warna ditempel pada SidebarMenuButton, bukan pada NavLink.
+              NavLink memakai className berupa fungsi yang DITIMPA oleh Slot
+              (asChild) sehingga class di dalamnya tidak pernah sampai ke DOM —
+              inilah penyebab menu terlihat pudar/putih sebelum di-hover.
+            */}
+            <SidebarMenuButton
+              asChild
+              isActive={aktif}
+              className={cn(
+                'text-sm font-medium text-foreground hover:text-foreground',
+                aktif && 'bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/90'
+              )}
             >
-              <item.icon />
-              <span>{labelItem(item)}</span>
-            </NavLink>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      ))}
+              <NavLink to={item.to} end={item.end}>
+                <item.icon />
+                <span>{labelItem(item)}</span>
+              </NavLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        );
+      })}
     </SidebarMenu>
   );
 
   return (
-    <Sidebar collapsible="icon">
+    /* collapsible="none": sidebar selalu terlihat di desktop maupun mobile —
+       item Menu Utama & Eksekutif Pemilik selalu tampil di layar tanpa
+       perlu menghilang (offcanvas) atau hover. */
+    <Sidebar collapsible="none" className="border-r">
       {/* Brand (dipindah dari Navbar lama) */}
       <SidebarHeader>
         <div className="flex items-center gap-3 px-2 py-1.5">
@@ -142,13 +151,13 @@ export const AppSidebar: React.FC = () => {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Menu Utama</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-foreground/80 font-semibold">Menu Utama</SidebarGroupLabel>
           <SidebarGroupContent>{renderGroup(MENU_UTAMA)}</SidebarGroupContent>
         </SidebarGroup>
 
         {role === 'pemilik' && (
           <SidebarGroup>
-            <SidebarGroupLabel>Eksekutif Pemilik</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-foreground/80 font-semibold">Eksekutif Pemilik</SidebarGroupLabel>
             <SidebarGroupContent>{renderGroup(MENU_PEMILIK)}</SidebarGroupContent>
           </SidebarGroup>
         )}
@@ -169,14 +178,7 @@ export const AppSidebar: React.FC = () => {
 
         {/* Kontrol demo (dipindah dari Navbar lama; fitur tidak hilang) */}
         <div className="space-y-2 px-1 pb-1 group-data-[collapsible=icon]:hidden">
-          <div className="flex items-center justify-between gap-2">
-            {role === 'pemilik' ? (
-              <span className="bg-purple-100 text-purple-800 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-purple-200">👑 Pemilik</span>
-            ) : role === 'pengelola' ? (
-              <span className="bg-emerald-100 text-emerald-800 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-emerald-200">🛠️ Pengelola</span>
-            ) : (
-              <span className="bg-blue-100 text-blue-800 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-blue-200">👤 Penyewa</span>
-            )}
+          <div className="flex justify-end">
             <button
               onClick={handleResetData}
               title="Reset Data Demo ke Tanggal Acuan 15 Okt 2026"
@@ -218,7 +220,6 @@ export const AppSidebar: React.FC = () => {
           </label>
         </div>
       </SidebarFooter>
-      <SidebarRail />
     </Sidebar>
   );
 };
