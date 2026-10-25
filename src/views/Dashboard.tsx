@@ -6,10 +6,10 @@ import {
   Building2,
   CheckCircle2,
   AlertCircle,
+  XCircle,
   Wrench,
   Clock,
   ArrowRight,
-  ShieldCheck,
   FileText,
   Calendar,
 } from 'lucide-react';
@@ -60,32 +60,54 @@ export const Dashboard: React.FC = () => {
   if (role === 'penyewa') {
     return (
       <div className="space-y-6">
-        {/* Welcome Banner */}
-        <div className="bg-gradient-to-r from-primary to-primary/70 rounded-2xl p-6 text-white shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        {/* Header Beranda Penyewa (gaya sama dengan beranda staf, tanpa banner gradient) */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <span className="text-emerald-200 text-xs font-semibold uppercase tracking-wider">Portal Penghuni</span>
-            <h1 className="text-2xl font-bold mt-1">Selamat Datang, {currentUser?.nama_lengkap}</h1>
-            <p className="text-emerald-100 text-sm mt-1">
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">
+              Selamat datang, {currentUser?.nama_lengkap}!
+            </h1>
+            <p className="text-sm text-muted-foreground">
               Griya Kenanga Residence · Kamar {tenantActiveContract?.unit?.kode || 'Belum Ada Kontrak Aktif'}
             </p>
           </div>
-          <div className="bg-card/10 backdrop-blur-md rounded-xl p-3 border border-white/20 text-xs space-y-1">
-            <div className="text-emerald-200">Status Identitas:</div>
-            <div className="font-semibold flex items-center gap-1.5 text-white">
-              {tenantIdentitas?.status_verifikasi === 'terverifikasi' ? (
-                <>
-                  <CheckCircle2 className="w-4 h-4 text-emerald-300" />
-                  Terverifikasi KTP
-                </>
-              ) : (
-                <>
-                  <AlertCircle className="w-4 h-4 text-amber-300" />
-                  {tenantIdentitas?.status_verifikasi === 'ditolak'
-                    ? 'Ditolak (Perlu Diperbaiki)'
-                    : 'Belum Diverifikasi'}
-                </>
-              )}
-            </div>
+          {/* Badge Status Identitas — latar netral; hover tooltip hanya untuk
+              status terverifikasi/belum, tanpa hover & tooltip untuk ditolak */}
+          <div
+            role="status"
+            title={
+              tenantIdentitas?.status_verifikasi === 'ditolak'
+                ? undefined
+                : `Status Verifikasi KTP: ${
+                    tenantIdentitas?.status_verifikasi === 'terverifikasi'
+                      ? 'Terverifikasi — identitas Anda sudah lolos pemeriksaan Pengelola.'
+                      : 'Belum Diverifikasi — identitas Anda menunggu pemeriksaan Pengelola.'
+                  }`
+            }
+            aria-label={`Status verifikasi KTP: ${
+              tenantIdentitas?.status_verifikasi === 'terverifikasi'
+                ? 'Terverifikasi'
+                : tenantIdentitas?.status_verifikasi === 'ditolak'
+                  ? 'Ditolak'
+                  : 'Belum Diverifikasi'
+            }`}
+            className={`flex items-center gap-2 text-xs bg-muted/50 text-foreground border border-border px-3 py-1.5 rounded-lg font-semibold transition-colors ${
+              tenantIdentitas?.status_verifikasi === 'ditolak'
+                ? ''
+                : 'cursor-help hover:bg-muted/80'
+            }`}
+          >
+            {tenantIdentitas?.status_verifikasi === 'terverifikasi' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            ) : tenantIdentitas?.status_verifikasi === 'ditolak' ? (
+              <XCircle className="w-4 h-4 text-rose-600" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-amber-500" />
+            )}
+            {tenantIdentitas?.status_verifikasi === 'terverifikasi'
+              ? 'Terverifikasi KTP'
+              : tenantIdentitas?.status_verifikasi === 'ditolak'
+                ? 'Ditolak'
+                : 'Belum Diverifikasi'}
           </div>
         </div>
 
@@ -113,7 +135,7 @@ export const Dashboard: React.FC = () => {
         {/* Kontrak & Tagihan Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Kontrak Aktif */}
-          <div className="bg-card rounded-2xl border border-border p-6 shadow-sm space-y-4">
+          <div className="bg-card rounded-2xl border border-border p-5 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-foreground flex items-center gap-2">
                 <FileText className="w-5 h-5 text-primary" /> Kontrak Sewa Aktif
@@ -124,24 +146,24 @@ export const Dashboard: React.FC = () => {
             </div>
 
             {tenantActiveContract ? (
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between py-2 border-b border-border">
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between py-1.5 border-b border-border">
                   <span className="text-muted-foreground">Nomor Kontrak</span>
                   <span className="font-semibold text-foreground">{tenantActiveContract.nomor}</span>
                 </div>
-                <div className="flex justify-between py-2 border-b border-border">
+                <div className="flex justify-between py-1.5 border-b border-border">
                   <span className="text-muted-foreground">Unit / Kamar</span>
                   <span className="font-semibold text-foreground">
                     {tenantActiveContract.unit?.kode} ({tenantActiveContract.unit?.tipe.toUpperCase()})
                   </span>
                 </div>
-                <div className="flex justify-between py-2 border-b border-border">
+                <div className="flex justify-between py-1.5 border-b border-border">
                   <span className="text-muted-foreground">Periode Sewa</span>
                   <span className="font-medium text-foreground">
                     {tenantActiveContract.tanggal_mulai} s/d {tenantActiveContract.tanggal_selesai}
                   </span>
                 </div>
-                <div className="flex justify-between py-2">
+                <div className="flex justify-between py-1.5">
                   <span className="text-muted-foreground">Sewa Bulanan (Terkunci)</span>
                   <span className="font-bold text-primary">
                     {formatRupiah(tenantActiveContract.harga_sewa_bulanan)}
@@ -155,8 +177,23 @@ export const Dashboard: React.FC = () => {
             )}
           </div>
 
-          {/* Tagihan Bulan Berjalan */}
-          <div className="bg-card rounded-2xl border border-border p-6 shadow-sm space-y-4">
+          {/* Tagihan Bulan Berjalan — belum ada tagihan untuk penyewa tanpa kontrak aktif */}
+          {!tenantActiveContract ? (
+            <div className="bg-card rounded-2xl border border-border p-5 shadow-sm space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-foreground flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-amber-500" /> Tagihan Bulan Ini
+                </h3>
+                <span className="text-xs font-semibold bg-emerald-100 text-primary px-2.5 py-0.5 rounded-full">
+                  Tidak Ada
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                Informasi tagihan akan diterbitkan setelah kontrak sewa diaktifkan Pengelola.
+              </p>
+            </div>
+          ) : (
+          <div className="bg-card rounded-2xl border border-border p-5 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-foreground flex items-center gap-2">
                 <Clock className="w-5 h-5 text-amber-500" /> Tagihan Bulan Ini
@@ -173,18 +210,18 @@ export const Dashboard: React.FC = () => {
             </div>
 
             {tenantPendingInvoice ? (
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between py-2 border-b border-border">
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between py-1.5 border-b border-border">
                   <span className="text-muted-foreground">Nomor Invoice</span>
                   <span className="font-semibold text-foreground">{tenantPendingInvoice.nomor}</span>
                 </div>
-                <div className="flex justify-between py-2 border-b border-border">
+                <div className="flex justify-between py-1.5 border-b border-border">
                   <span className="text-muted-foreground">Jatuh Tempo</span>
                   <span className="font-semibold text-rose-600">
                     {tenantPendingInvoice.jatuh_tempo} (Lewat Jatuh Tempo)
                   </span>
                 </div>
-                <div className="flex justify-between py-2 border-b border-border">
+                <div className="flex justify-between py-1.5 border-b border-border">
                   <span className="text-muted-foreground">Denda Keterlambatan</span>
                   <span className="font-semibold text-rose-600">
                     {formatRupiah(tenantPendingInvoice.denda)}
@@ -211,6 +248,7 @@ export const Dashboard: React.FC = () => {
               </div>
             )}
           </div>
+          )}
         </div>
 
         {/* Laporan Kerusakan Terakhir */}
@@ -259,12 +297,8 @@ export const Dashboard: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">Ringkasan Operasional Properti</h1>
           <p className="text-sm text-muted-foreground">
-            Griya Kenanga Residence · Acuan Data: <span className="font-semibold text-foreground">15 Oktober 2026</span>
+            Griya Kenanga Residence
           </p>
-        </div>
-        <div className="flex items-center gap-2 text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1.5 rounded-lg font-medium">
-          <ShieldCheck className="w-4 h-4 text-primary" />
-          Akses Internal: {role === 'pemilik' ? 'Pemilik Usaha' : 'Pengelola Operasional'}
         </div>
       </div>
 

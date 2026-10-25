@@ -53,8 +53,9 @@ export const AppHeader: React.FC = () => {
     <header className="sticky top-0 z-10 flex h-16 items-center gap-3 border-b bg-background px-4 sm:px-6">
       {/* Trigger hanya tampil di mobile; di desktop sidebar tidak pernah disembunyikan */}
       <SidebarTrigger aria-label="Buka menu navigasi" className="md:hidden" />
-      {/* Salam hanya di beranda; halaman lain header lebih ringkas */}
-      {diBeranda && (
+      {/* Salam hanya di beranda & hanya untuk staf (pemilik/pengelola) —
+          penyewa sudah diwakili judul halaman utama berandanya sendiri. */}
+      {diBeranda && role !== 'penyewa' && (
         <h1 className="truncate text-lg font-semibold">
           Selamat datang, {nama.split(' ')[0]}
         </h1>
