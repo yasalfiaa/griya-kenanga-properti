@@ -15,7 +15,25 @@ import {
   FileText,
   AlertCircle,
   Eye,
+  MessageCircle,
 } from 'lucide-react';
+
+/** Konversi nomor HP lokal ke format wa.me internasional.
+ *  0812... -> 62812..., 62812... dipertahankan, +62 & spasi dibersihkan. */
+const nomorWhatsApp = (noHp?: string | null): string | null => {
+  if (!noHp) return null;
+  const digits = noHp.replace(/\D/g, '');
+  let normalized: string | null = null;
+  if (digits.startsWith('0')) {
+    normalized = `62${digits.slice(1)}`;
+  } else if (digits.startsWith('62')) {
+    normalized = digits;
+  } else if (digits.startsWith('8')) {
+    // Nomor disimpan tanpa '0' awal (mis. 812...) — anggap kode negara hilang
+    normalized = `62${digits}`;
+  }
+  return normalized && normalized.length >= 10 ? `https://wa.me/${normalized}` : null;
+};
 
 export const Tenants: React.FC = () => {
   const { currentUser, role } = useAuth();
@@ -123,9 +141,7 @@ export const Tenants: React.FC = () => {
             <Users className="w-6 h-6 text-primary" /> Data & Verifikasi Identitas Penyewa
           </h1>
           <p className="text-sm text-muted-foreground">
-            {role === 'pemilik'
-              ? 'Proteksi Privasi: Pemilik hanya melihat 4 angka terakhir NIK dan tidak melihat foto KTP.'
-              : 'Verifikasi KTP Pengelola: Kontrak draf hanya bisa diaktifkan bila identitas sudah diverifikasi.'}
+            Daftar informasi penyewa, status verifikasi identitas, dan kontak darurat.
           </p>
         </div>
       </div>
@@ -157,24 +173,38 @@ export const Tenants: React.FC = () => {
           <table className="w-full text-left text-sm text-muted-foreground">
             <thead className="bg-muted/50 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               <tr>
-                <th className="py-3.5 px-4">Nama Lengkap & Kontak</th>
-                <th className="py-3.5 px-4">NIK (KTP)</th>
-                <th className="py-3.5 px-4">Alamat Asal</th>
-                <th className="py-3.5 px-4">Kontak Darurat</th>
-                <th className="py-3.5 px-4">Status Verifikasi</th>
-                {role === 'pengelola' && <th className="py-3.5 px-4 text-right">Aksi</th>}
+                <th className="py-2.5 px-4">Nama Lengkap & Kontak</th>
+                <th className="py-2.5 px-4">NIK (KTP)</th>
+                <th className="py-2.5 px-4">Alamat Asal</th>
+                <th className="py-2.5 px-4">Kontak Darurat</th>
+                <th className="py-2.5 px-4">Status Verifikasi</th>
+                {role === 'pengelola' && <th className="py-2.5 px-4 text-right">Aksi</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {tenants.map(({ profile, identitas }) => (
                 <tr key={profile.id} className="hover:bg-muted/60 transition-colors">
-                  <td className="py-3.5 px-4">
+                  <td className="py-2 px-4">
                     <div className="font-semibold text-foreground">{profile.nama_lengkap}</div>
-                    <div className="text-xs text-muted-foreground">{profile.email} · {profile.no_hp}</div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                      <span className="truncate">{profile.email}</span>
+                      {nomorWhatsApp(profile.no_hp) && (
+                        <a
+                          href={nomorWhatsApp(profile.no_hp)!}
+                          target="_blank"
+                          rel="noreferrer"
+                          title={`Hubungi via WhatsApp (${profile.no_hp})`}
+                          aria-label={`Chat WhatsApp ${profile.nama_lengkap}`}
+                          className="inline-flex items-center justify-center w-5 h-5 rounded-full text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 transition-colors shrink-0"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                    </div>
                   </td>
 
                   {/* NIK Display: Full for Pengelola, Masked for Pemilik (BR-10) */}
-                  <td className="py-3.5 px-4 font-mono text-xs">
+                  <td className="py-2 px-4 font-mono text-xs">
                     {identitas?.nik ? (
                       role === 'pemilik' ? (
                         <span className="bg-muted text-foreground px-2 py-1 rounded">
@@ -188,11 +218,11 @@ export const Tenants: React.FC = () => {
                     )}
                   </td>
 
-                  <td className="py-3.5 px-4 text-xs">
+                  <td className="py-2 px-4 text-xs">
                     {identitas?.alamat_asal || <span className="text-muted-foreground italic">-</span>}
                   </td>
 
-                  <td className="py-3.5 px-4 text-xs">
+                  <td className="py-2 px-4 text-xs">
                     {identitas?.kontak_darurat_nama ? (
                       <div>
                         <div className="font-medium text-foreground">{identitas.kontak_darurat_nama}</div>
@@ -203,13 +233,13 @@ export const Tenants: React.FC = () => {
                     )}
                   </td>
 
-                  <td className="py-3.5 px-4">
+                  <td className="py-2 px-4">
                     {getVerificationBadge(identitas?.status_verifikasi)}
                   </td>
 
                   {/* Aksi Verifikasi untuk Pengelola */}
                   {role === 'pengelola' && (
-                    <td className="py-3.5 px-4 text-right">
+                    <td className="py-2 px-4 text-right">
                       {identitas ? (
                         <button
                           onClick={() => {
@@ -221,7 +251,7 @@ export const Tenants: React.FC = () => {
                           }}
                           className="px-3 py-1.5 text-xs bg-emerald-50 text-primary hover:bg-emerald-100 rounded-lg font-semibold transition-colors border border-emerald-200"
                         >
-                          Periksa & Verifikasi
+                          Verifikasi
                         </button>
                       ) : (
                         <span className="text-xs text-muted-foreground italic">Data Kosong</span>
