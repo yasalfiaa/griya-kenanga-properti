@@ -13,6 +13,29 @@ interface AuthContextType {
   switchRoleUser: (userId: string) => Promise<void>;
 }
 
+const safeLocalStorage = {
+  getItem: (key: string): string | null => {
+    if (typeof window === 'undefined') return null;
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  setItem: (key: string, value: string): void => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(key, value);
+    } catch {}
+  },
+  removeItem: (key: string): void => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.removeItem(key);
+    } catch {}
+  },
+};
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -28,7 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Tanpa Supabase konfigur: mode demo lokal memakai profil mock disimpan.
   const [currentUser, setCurrentUser] = useState<Profile | null>(() => {
     if (!isSupabaseConfigured) {
-      const saved = localStorage.getItem('griya_user_id');
+      const saved = safeLocalStorage.getItem('griya_user_id');
       if (saved) {
         const found = (MOCK_PROFILES as unknown as Profile[]).find(p => p.id === saved);
         if (found) return found;
@@ -53,26 +76,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (data) {
         setCurrentUser(data as Profile);
-        localStorage.setItem('griya_user_id', data.id);
+        safeLocalStorage.setItem('griya_user_id', data.id);
         await dataStore.loadFromSupabase();
         return true;
       }
 
       // Sesinya valid tapi profil tidak ada → tidak dianggap login
       setCurrentUser(null);
-      localStorage.removeItem('griya_user_id');
+      safeLocalStorage.removeItem('griya_user_id');
       return false;
     };
 
     // 1. Pulihkan sesi yang tersimpan (refresh halaman / origin berubah)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        loadProfile(session.user.id).finally(() => setIsLoading(false));
-      } else {
-        setCurrentUser(null); // eksplisit: tidak ada sesi → tampilan login
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (session?.user) {
+          loadProfile(session.user.id).finally(() => setIsLoading(false));
+        } else {
+          setCurrentUser(null); // eksplisit: tidak ada sesi → tampilan login
+          setIsLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.warn('Gagal memuat sesi Supabase:', err);
         setIsLoading(false);
-      }
-    });
+      });
 
     // 2. Reaksi terhadap perubahan status otentikasi (login/logout/refresh token)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -82,7 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIsLoading(false);
         } else if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
           setCurrentUser(null);
-          localStorage.removeItem('griya_user_id');
+          safeLocalStorage.removeItem('griya_user_id');
           setIsLoading(false);
         }
       }
@@ -127,7 +156,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (profileData) {
             setCurrentUser(profileData as Profile);
-            localStorage.setItem('griya_user_id', profileData.id);
+            safeLocalStorage.setItem('griya_user_id', profileData.id);
             await dataStore.loadFromSupabase();
             setIsLoading(false);
             return { success: true };
@@ -153,7 +182,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
         if (mockProfile) {
           setCurrentUser(mockProfile);
-          localStorage.setItem('griya_user_id', mockProfile.id);
+          safeLocalStorage.setItem('griya_user_id', mockProfile.id);
           setIsLoading(false);
           return { success: true };
         }
@@ -180,7 +209,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Sign out warning:', e);
       }
     }
-    localStorage.removeItem('griya_user_id');
+    safeLocalStorage.removeItem('griya_user_id');
     setCurrentUser(null);
   };
 
@@ -195,7 +224,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (profileData) {
         setCurrentUser(profileData as Profile);
-        localStorage.setItem('griya_user_id', profileData.id);
+        safeLocalStorage.setItem('griya_user_id', profileData.id);
         await dataStore.loadFromSupabase();
         setIsLoading(false);
         return;
@@ -205,7 +234,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const mockProfile = (MOCK_PROFILES as unknown as Profile[]).find(p => p.id === userId);
     if (mockProfile) {
       setCurrentUser(mockProfile);
-      localStorage.setItem('griya_user_id', mockProfile.id);
+      safeLocalStorage.setItem('griya_user_id', mockProfile.id);
     }
     setIsLoading(false);
   };
