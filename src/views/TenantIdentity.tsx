@@ -9,7 +9,7 @@ import {
   getSignedImageUrl,
   STORAGE_BUCKETS,
 } from '../api/storage';
-import { UserSquare2, ShieldCheck, CheckCircle2, AlertCircle, Camera, Image as ImageIcon } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Image as ImageIcon } from 'lucide-react';
 
 export const TenantIdentity: React.FC = () => {
   const { currentUser } = useAuth();
@@ -124,19 +124,19 @@ export const TenantIdentity: React.FC = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
-          <UserSquare2 className="w-6 h-6 text-primary" /> Data Identitas & Foto KTP Penghuni
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">
+          Data Identitas Penyewa
         </h1>
         <p className="text-sm text-muted-foreground">
-          Wajib dilengkapi untuk aktivasi kontrak kamar sewa. Data disimpan aman di storage privat.
+          Lengkapi data untuk aktivasi kontrak kamar sewa.
         </p>
       </div>
 
       {message && (
         <div
-          className={`p-4 rounded-xl flex items-center gap-3 text-sm ${
+          className={`p-3 rounded-xl flex items-center gap-3 text-sm ${
             message.type === 'success'
               ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
               : 'bg-rose-50 text-rose-800 border border-rose-200'
@@ -152,7 +152,7 @@ export const TenantIdentity: React.FC = () => {
       )}
 
       {/* Form */}
-      <form onSubmit={handleSave} className="bg-card rounded-2xl border border-border p-6 shadow-sm space-y-4">
+      <form onSubmit={handleSave} className="bg-card rounded-2xl border border-border p-5 shadow-sm space-y-3">
         <div>
           <label className="text-xs font-semibold text-foreground block mb-1">
             Nomor Induk Kependudukan (NIK 16 Angka)
@@ -163,7 +163,7 @@ export const TenantIdentity: React.FC = () => {
             value={nik}
             onChange={(e) => setNik(e.target.value)}
             placeholder="Contoh: 3471012345670001"
-            className="w-full text-sm font-mono border border-border rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-ring focus:outline-none"
+            className="w-full text-sm font-mono border border-border rounded-xl px-3 py-2 focus:ring-2 focus:ring-ring focus:outline-none"
             required
           />
         </div>
@@ -175,12 +175,12 @@ export const TenantIdentity: React.FC = () => {
             value={alamatAsal}
             onChange={(e) => setAlamatAsal(e.target.value)}
             placeholder="Jalan, RT/RW, Kelurahan, Kecamatan, Kota/Kabupaten"
-            className="w-full text-sm border border-border rounded-xl p-2.5 focus:ring-2 focus:ring-ring focus:outline-none"
+            className="w-full text-sm border border-border rounded-xl px-3 py-2 focus:ring-2 focus:ring-ring focus:outline-none"
             required
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="text-xs font-semibold text-foreground block mb-1">
               Nama Kontak Darurat & Hubungan
@@ -190,7 +190,7 @@ export const TenantIdentity: React.FC = () => {
               value={kontakNama}
               onChange={(e) => setKontakNama(e.target.value)}
               placeholder="Contoh: Budi Santoso (Ayah)"
-              className="w-full text-sm border border-border rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-ring focus:outline-none"
+              className="w-full text-sm border border-border rounded-xl px-3 py-2 focus:ring-2 focus:ring-ring focus:outline-none"
               required
             />
           </div>
@@ -203,7 +203,7 @@ export const TenantIdentity: React.FC = () => {
               value={kontakHp}
               onChange={(e) => setKontakHp(e.target.value)}
               placeholder="08123456789"
-              className="w-full text-sm border border-border rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-ring focus:outline-none"
+              className="w-full text-sm border border-border rounded-xl px-3 py-2 focus:ring-2 focus:ring-ring focus:outline-none"
               required
             />
           </div>
@@ -217,45 +217,49 @@ export const TenantIdentity: React.FC = () => {
             type="file"
             accept={ACCEPTED_IMAGE_ATTR}
             onChange={handleFileSelect}
-            className="w-full text-xs text-muted-foreground border border-border rounded-xl px-3 py-2.5 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-primary file:text-white file:text-xs file:font-semibold file:cursor-pointer hover:file:bg-primary/90 cursor-pointer bg-card"
+            className="w-full text-xs text-muted-foreground border border-border rounded-xl px-3 py-1.5 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-primary file:text-white file:text-xs file:font-semibold file:cursor-pointer hover:file:bg-primary/90 cursor-pointer bg-card"
             aria-label="Pilih berkas foto KTP"
           />
 
           {/* Pesan error validasi file */}
           {fotoError && (
-            <p className="mt-2 text-xs font-semibold text-rose-600 flex items-center gap-1.5" role="alert">
+            <p className="mt-1.5 text-xs font-semibold text-rose-600 flex items-center gap-1.5" role="alert">
               <AlertCircle className="w-3.5 h-3.5" /> {fotoError}
             </p>
           )}
 
           {/* Pratinjau: foto baru terpilih -> urut teratas; lalu foto tersimpan (signed URL) */}
-          <div className="mt-3 flex items-center gap-4 border border-dashed border-border rounded-xl p-4 bg-muted/50">
+          <div className="mt-2.5 flex items-center gap-3 border border-dashed border-border rounded-xl p-2.5 bg-muted/50">
             {fotoPreview ? (
               <img
                 src={fotoPreview}
                 alt="Pratinjau foto KTP baru"
-                className="w-20 h-14 object-cover rounded-lg border border-border shadow-sm"
+                className="w-16 h-12 object-cover rounded-lg border border-border shadow-sm flex-shrink-0"
               />
             ) : existingPreview ? (
               <img
                 src={existingPreview}
                 alt="Foto KTP tersimpan"
-                className="w-20 h-14 object-cover rounded-lg border border-border shadow-sm"
+                className="w-16 h-12 object-cover rounded-lg border border-border shadow-sm flex-shrink-0"
               />
             ) : (
-              <div className="w-20 h-14 rounded-lg bg-border flex items-center justify-center">
-                <ImageIcon className="w-6 h-6 text-muted-foreground" />
+              <div className="w-16 h-12 rounded-lg bg-border flex items-center justify-center flex-shrink-0">
+                <ImageIcon className="w-5 h-5 text-muted-foreground" />
               </div>
             )}
             <div className="text-xs min-w-0 flex-1">
               <span className="font-semibold text-foreground block truncate">
-                {fotoFile ? fotoFile.name : currentIdentity?.foto_ktp_path || 'Belum ada foto KTP diunggah'}
-              </span>
-              <p className="text-muted-foreground">
                 {fotoFile
-                  ? `${(fotoFile.size / 1024).toFixed(0)} KB — menunggu disimpan`
-                  : 'Foto tersimpan aman di bucket privat Supabase (akses via link sementara)'}
-              </p>
+                  ? fotoFile.name
+                  : (fotoPath || currentIdentity?.foto_ktp_path)
+                    ? 'Foto KTP terlampir'
+                    : 'Belum ada foto KTP diunggah'}
+              </span>
+              {fotoFile && (
+                <p className="text-muted-foreground mt-0.5">
+                  {(fotoFile.size / 1024).toFixed(0)} KB
+                </p>
+              )}
             </div>
             {fotoFile && (
               <span className="text-xs bg-emerald-100 text-emerald-800 font-semibold px-2.5 py-1 rounded-lg flex-shrink-0">
@@ -265,11 +269,11 @@ export const TenantIdentity: React.FC = () => {
           </div>
         </div>
 
-        <div className="pt-2">
+        <div className="pt-1.5">
           <button
             type="submit"
             disabled={isSaving}
-            className="w-full bg-primary hover:bg-primary/90 disabled:opacity-60 disabled:cursor-wait text-white font-semibold py-3 px-4 rounded-xl shadow-sm transition-colors text-sm flex items-center justify-center gap-2"
+            className="w-full bg-primary hover:bg-primary/90 disabled:opacity-60 disabled:cursor-wait text-white font-semibold py-2.5 px-4 rounded-xl shadow-sm transition-colors text-sm flex items-center justify-center gap-2"
           >
             {isSaving ? 'Mengunggah & Menyimpan...' : 'Simpan Data Identitas'}
           </button>
