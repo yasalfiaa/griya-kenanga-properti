@@ -1,12 +1,9 @@
 [build]
   command = "npm run build"
-  publish = "dist"
+  publish = ".next"
 
-# SPA redirect rule
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
 
 # Security and Privacy Headers (PRD Non-Fungsional: internal app, noindex)
 [[headers]]
