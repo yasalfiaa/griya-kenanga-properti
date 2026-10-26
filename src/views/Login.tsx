@@ -1,19 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Home, Lock, Mail, Users, ArrowRight, ShieldCheck } from 'lucide-react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
+import { Home, EyeIcon, EyeOffIcon, ArrowRight, Loader2 } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const { loginAs, currentUser } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
   const [email, setEmail] = useState('ratna@griyakenanga.test');
   const [password, setPassword] = useState('Latihan#2026');
+  const [isVisible, setIsVisible] = useState<boolean>(false);
+  const [keepLoggedIn, setKeepLoggedIn] = useState<boolean>(true);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const toggleVisibility = () => setIsVisible((prevState) => !prevState);
 
   // Tujuan setelah login: parameter ?redirect= bila ada dan aman (path internal),
   // selain itu beranda seperti semula.
-  const tujuanSetelahLogin = React.useMemo(() => {
+  const tujuanSetelahLogin = useMemo(() => {
     const redirect = searchParams.get('redirect');
     if (redirect && redirect.startsWith('/') && !redirect.startsWith('//')) {
       return redirect;
@@ -21,20 +39,24 @@ export const Login: React.FC = () => {
     return '/';
   }, [searchParams]);
 
-  // Bila pengguna sudah mempunyai sesi (sesi terpulihkan atau baru login),
-  // arahkan ke halaman yang diminta (atau beranda bila bukan hasil guard).
-  React.useEffect(() => {
+  // Bila pengguna sudah mempunyai sesi, arahkan ke halaman tujuan.
+  useEffect(() => {
     if (currentUser) navigate(tujuanSetelahLogin, { replace: true });
   }, [currentUser, navigate, tujuanSetelahLogin]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const res = await loginAs(email, password);
-    if (res.success) {
-      navigate(tujuanSetelahLogin, { replace: true });
-    } else {
-      setError(res.message || 'Email atau kata sandi tidak ditemukan.');
+    setIsLoading(true);
+    try {
+      const res = await loginAs(email, password);
+      if (res.success) {
+        navigate(tujuanSetelahLogin, { replace: true });
+      } else {
+        setError(res.message || 'Email atau kata sandi tidak ditemukan.');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -42,77 +64,155 @@ export const Login: React.FC = () => {
     setEmail(quickEmail);
     setPassword('Latihan#2026');
     setError('');
-    const res = await loginAs(quickEmail, 'Latihan#2026');
-    if (res.success) {
-      navigate(tujuanSetelahLogin, { replace: true });
-    } else {
-      setError(res.message || 'Gagal masuk dengan akun uji.');
+    setIsLoading(true);
+    try {
+      const res = await loginAs(quickEmail, 'Latihan#2026');
+      if (res.success) {
+        navigate(tujuanSetelahLogin, { replace: true });
+      } else {
+        setError(res.message || 'Gagal masuk dengan akun uji.');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-muted/50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full space-y-6">
-        {/* Brand */}
-        <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-primary to-primary/70 mx-auto flex items-center justify-center text-white shadow-md shadow-primary/20">
-            <Home className="w-6 h-6" />
+    <div className="relative min-h-screen flex items-center justify-center p-4 overflow-hidden">
+      {/* Background foto real properti hunian dengan efek blur 75% */}
+      <div
+        className="absolute inset-0 bg-cover bg-center scale-110 filter blur-[14px] brightness-[0.75]"
+        style={{
+          backgroundImage: `url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=2000&q=80')`,
+        }}
+        aria-hidden="true"
+      />
+      {/* Overlay halus agar teks dan kartu memiliki kontras maksimal */}
+      <div className="absolute inset-0 bg-slate-950/35" aria-hidden="true" />
+
+      {/* Kartu Autentikasi */}
+      <Card className="relative z-10 flex w-full max-w-[440px] shadow-2xl flex-col gap-6 p-6 md:p-8 bg-card/95 backdrop-blur-md border border-border/80 rounded-2xl">
+        <CardHeader className="flex flex-col items-center gap-3 p-0 text-center">
+          {/* Logo aplikasi tetap dipertahankan */}
+          <div className="relative flex size-[68px] shrink-0 items-center justify-center rounded-full backdrop-blur-xl md:size-20 before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-b before:from-primary/20 before:to-transparent before:opacity-30">
+            <div className="relative z-10 flex size-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-primary to-primary/80 text-white shadow-md shadow-primary/25 md:size-14">
+              <Home className="size-6 md:size-7" />
+            </div>
           </div>
-          <h1 className="text-2xl font-extrabold text-foreground tracking-tight">
-            Griya Kenanga <span className="text-primary">Residence</span>
-          </h1>
-          <p className="text-xs text-muted-foreground">Sistem Internal Manajemen Properti & Sewa Unit</p>
-        </div>
 
-        {/* Login Form */}
-        <div className="bg-card rounded-2xl border border-border p-6 shadow-sm space-y-5">
-          <h2 className="text-base font-bold text-foreground">Masuk ke Akun Anda</h2>
+          {/* Nama Aplikasi & Keterangan Sistem tetap dipertahankan */}
+          <div className="flex flex-col space-y-1.5 text-center">
+            <CardTitle className="text-xl md:text-2xl font-extrabold text-foreground tracking-tight">
+              Griya Kenanga <span className="text-primary">Residence</span>
+            </CardTitle>
+            <CardDescription className="text-xs text-muted-foreground tracking-[-0.006em]">
+              Sistem Internal Manajemen Properti & Sewa Unit
+            </CardDescription>
+          </div>
+        </CardHeader>
 
+        <Separator />
+
+        <CardContent className="p-0">
           {error && (
-            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs">
+            <div className="mb-4 p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="text-xs font-semibold text-foreground block mb-1">Alamat Email</label>
-              <div className="relative">
-                <Mail className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full text-xs border border-border rounded-xl pl-9 pr-3 py-2.5 focus:ring-2 focus:ring-ring focus:outline-none"
-                  required
-                />
-              </div>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {/* Fitur Email */}
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="email" className="text-xs font-semibold text-foreground">
+                Email
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Masukkan email Anda"
+                className="rounded-lg h-10 px-3 text-xs bg-background/80"
+                required
+              />
             </div>
 
-            <div>
-              <label className="text-xs font-semibold text-foreground block mb-1">Kata Sandi</label>
+            {/* Fitur Password dengan toggle lihat/sembunyikan */}
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="password" className="text-xs font-semibold text-foreground">
+                Kata Sandi
+              </Label>
               <div className="relative">
-                <Lock className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
-                <input
-                  type="password"
+                <Input
+                  id="password"
+                  className="pe-9 rounded-lg h-10 px-3 text-xs bg-background/80"
+                  placeholder="Masukkan kata sandi"
+                  type={isVisible ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full text-xs border border-border rounded-xl pl-9 pr-3 py-2.5 focus:ring-2 focus:ring-ring focus:outline-none"
                   required
                 />
+                <button
+                  className="text-muted-foreground/80 hover:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 absolute inset-y-0 end-0 flex h-full w-9 items-center justify-center rounded-e-md transition-[color,box-shadow] outline-none focus:z-10 focus-visible:ring-[3px] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
+                  type="button"
+                  onClick={toggleVisibility}
+                  aria-label={isVisible ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
+                  aria-pressed={isVisible}
+                  aria-controls="password"
+                >
+                  {isVisible ? (
+                    <EyeOffIcon size={16} aria-hidden="true" />
+                  ) : (
+                    <EyeIcon size={16} aria-hidden="true" />
+                  )}
+                </button>
               </div>
             </div>
 
-            <button
+            {/* Keep me logged in (Ingat saya) & Ganti forgot password menjadi link Daftar Akun Baru */}
+            <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="keep-me-logged-in"
+                  checked={keepLoggedIn}
+                  onCheckedChange={(checked) => setKeepLoggedIn(!!checked)}
+                />
+                <Label
+                  htmlFor="keep-me-logged-in"
+                  className="text-xs text-muted-foreground cursor-pointer select-none"
+                >
+                  Ingat saya
+                </Label>
+              </div>
+              <Link
+                to="/register"
+                className="text-xs text-primary font-medium hover:underline transition-colors"
+              >
+                Belum Punya Akun? Daftar Akun Baru
+              </Link>
+            </div>
+
+            {/* Tombol Continue dengan warna primary */}
+            <Button
               type="submit"
-              className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-2.5 px-4 rounded-xl shadow-sm transition-colors text-xs flex items-center justify-center gap-1.5"
+              disabled={isLoading}
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-10 rounded-lg shadow-sm transition-colors text-xs flex items-center justify-center gap-1.5 mt-2"
             >
-              Masuk Sekarang <ArrowRight className="w-4 h-4" />
-            </button>
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Memproses...
+                </>
+              ) : (
+                <>
+                  Lanjutkan <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </Button>
           </form>
 
-          {/* Quick Demo Test Buttons */}
-          <div className="pt-4 border-t border-border space-y-2">
+          {/* Akses Cepat Akun Uji */}
+          <div className="mt-5 pt-4 border-t border-border space-y-2">
             <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
               Akses Cepat Akun Uji (Password: Latihan#2026):
             </span>
@@ -147,15 +247,8 @@ export const Login: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
-
-        <div className="text-center text-xs text-muted-foreground">
-          Belum punya akun?{' '}
-          <Link to="/register" className="text-primary font-semibold hover:underline">
-            Daftar Akun Baru
-          </Link>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
