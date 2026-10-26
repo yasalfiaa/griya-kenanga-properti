@@ -188,27 +188,27 @@ export const AppSidebar: React.FC = () => {
       <SidebarFooter>
         {/* Info properti */}
         <div className="bg-muted/30 border border-slate-200/80 dark:border-slate-800 rounded-lg p-3 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden space-y-1.5">
-          <div className="flex items-center justify-between gap-1.5">
-            <div className="font-semibold text-foreground flex items-center gap-1.5 text-xs min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <div className="font-semibold text-foreground flex items-start gap-1.5 text-xs min-w-0">
               <span
                 className={cn(
-                  'w-2 h-2 rounded-full shrink-0 transition-colors',
+                  'w-1.5 h-1.5 rounded-full shrink-0 mt-1 transition-colors',
                   isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
                 )}
                 title={isOnline ? 'Terhubung (Online)' : 'Koneksi Terputus (Offline)'}
               />
-              <span className="truncate">Griya Kenanga Sleman, Yogyakarta</span>
+              <span className="leading-snug">Griya Kenanga Sleman, Yogyakarta</span>
             </div>
             <button
               onClick={handleResetData}
               title="Reset data demo"
-              className="p-1 text-muted-foreground hover:text-primary hover:bg-muted rounded-md transition-colors shrink-0"
+              className="p-1 -mr-1 -mt-0.5 text-muted-foreground hover:text-primary hover:bg-muted rounded-md transition-colors shrink-0"
               aria-label="Reset data demo"
             >
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
           </div>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-[11px] text-muted-foreground leading-normal">
             Terakhir diperbarui: {lastUpdated || 'Hari ini, 11:34 WIB'}
           </p>
         </div>
