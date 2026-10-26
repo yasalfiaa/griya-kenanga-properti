@@ -187,9 +187,9 @@ export const AppSidebar: React.FC = () => {
 
       <SidebarFooter>
         {/* Info properti */}
-        <div className="bg-muted/30 border border-slate-200/80 dark:border-slate-800 rounded-lg p-3 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden space-y-1.5">
+        <div className="bg-muted/30 border border-slate-200/80 dark:border-slate-800 rounded-lg p-3 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
           <div className="flex items-start justify-between gap-2">
-            <div className="font-semibold text-foreground flex items-start gap-1.5 text-xs min-w-0">
+            <div className="flex items-start gap-2 min-w-0">
               <span
                 className={cn(
                   'w-1.5 h-1.5 rounded-full shrink-0 mt-1 transition-colors',
@@ -197,7 +197,14 @@ export const AppSidebar: React.FC = () => {
                 )}
                 title={isOnline ? 'Terhubung (Online)' : 'Koneksi Terputus (Offline)'}
               />
-              <span className="leading-snug">Griya Kenanga Sleman, Yogyakarta</span>
+              <div className="space-y-1.5 min-w-0">
+                <div className="font-semibold text-foreground text-xs leading-snug">
+                  Griya Kenanga Sleman, Yogyakarta
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-normal">
+                  Terakhir diperbarui: {lastUpdated || 'Hari ini, 11:34 WIB'}
+                </p>
+              </div>
             </div>
             <button
               onClick={handleResetData}
@@ -208,9 +215,6 @@ export const AppSidebar: React.FC = () => {
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
           </div>
-          <p className="text-[11px] text-muted-foreground leading-normal">
-            Terakhir diperbarui: {lastUpdated || 'Hari ini, 11:34 WIB'}
-          </p>
         </div>
       </SidebarFooter>
     </Sidebar>
