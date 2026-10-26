@@ -195,7 +195,7 @@ export const Settings: React.FC = () => {
         {/* URL Webhook (bisa disalin) */}
         <div>
           <label className="text-xs font-semibold text-foreground block mb-1 flex items-center gap-1.5">
-            <Globe className="w-3.5 h-3.5 text-muted-foreground" /> URL Webhook (tempel di Mayar: Integration → Webhook)
+            <Globe className="w-3.5 h-3.5 text-muted-foreground" /> URL Webhook
           </label>
           <div className="flex gap-2">
             <input
@@ -212,10 +212,7 @@ export const Settings: React.FC = () => {
               {tersalin ? 'Tersalin' : 'Salin'}
             </button>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-1">
-            Endpoint menerima POST dari Mayar selalu membalas 200; keputusan akhir pembayaran diverifikasi ulang
-            ke Mayar sebelum tagihan ditandai lunas.
-          </p>
+          {/* Endpoint menerima POST dari Mayar selalu membalas 200; keputusan akhir pembayaran diverifikasi ulang ke Mayar sebelum tagihan ditandai lunas. */}
         </div>
 
         {/* 10 baris terakhir mayar_webhook_log */}
