@@ -138,7 +138,7 @@ export interface NomorUrut {
 export interface AuditLog {
   id: number;
   pelaku_id: string;
-  peran: RoleType;
+  peran: RoleType | 'mayar' | 'sistem' | string;
   aksi: string;
   tabel: string;
   data_id: string;
