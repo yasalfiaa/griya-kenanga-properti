@@ -206,7 +206,7 @@ export const Contracts: React.FC = () => {
             Pengelolaan Kontrak Sewa
           </h1>
           <p className="text-sm text-muted-foreground">
-            Penegakan aturan kontrak tunggal, tanggal mulai tanggal 1, dan pencegahan overlap tanggal sewa.
+            Kelola seluruh kesepakatan sewa dengan rapi.
           </p>
         </div>
 

@@ -124,7 +124,7 @@ export const Settings: React.FC = () => {
           Setelan Sistem
         </h1>
         <p className="text-sm text-muted-foreground">
-          Halaman khusus Pemilik. Konfigurasi Payment Gateway ditampilkan tanpa pernah memaparkan nilai kunci.
+          Informasi sistem pembayaran terintegrasi.
         </p>
       </div>
 
