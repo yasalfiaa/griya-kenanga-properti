@@ -201,9 +201,10 @@ export const AppSidebar: React.FC = () => {
                 <div className="font-semibold text-foreground text-xs leading-snug">
                   Griya Kenanga Sleman, Yogyakarta
                 </div>
-                <p className="text-[11px] text-muted-foreground leading-normal">
-                  Terakhir diperbarui: {lastUpdated || 'Hari ini, 11:34 WIB'}
-                </p>
+                <div className="text-[11px] text-muted-foreground leading-tight space-y-0.5">
+                  <p>Terakhir diperbarui:</p>
+                  <p className="font-medium text-foreground">{lastUpdated || 'Hari ini, 11:34 WIB'}</p>
+                </div>
               </div>
             </div>
             <button
