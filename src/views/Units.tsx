@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { dataStore } from '../api/data-service';
 import { Unit, UnitStatus } from '../types/database';
@@ -67,8 +67,18 @@ export const Units: React.FC = () => {
   const { currentUser, role } = useAuth();
   const [units, setUnits] = useState<Unit[]>(() => dataStore.getUnits());
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
   // View state halaman: null = katalog tipe; selain itu = detail kamar tipe tsb.
   const [selectedType, setSelectedType] = useState<Unit['tipe'] | null>(null);
+
+  // Keterangan sukses/notifikasi otomatis hilang setelah 5 detik
+  useEffect(() => {
+    if (!message) return;
+    const timer = setTimeout(() => {
+      setMessage(null);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [message]);
 
   // Modal Ubah Harga (Pemilik)
   const [editingPriceUnit, setEditingPriceUnit] = useState<Unit | null>(null);
@@ -80,31 +90,37 @@ export const Units: React.FC = () => {
   const [newStatus, setNewStatus] = useState<UnitStatus>('tersedia');
   const [statusModalError, setStatusModalError] = useState<string | null>(null);
 
-  const handleUpdatePrice = () => {
+  const handleUpdatePrice = async () => {
     if (!editingPriceUnit || !currentUser) return;
     try {
+      setIsUpdating(true);
       setPriceModalError(null);
-      dataStore.updateUnitPrice(editingPriceUnit.id, newPrice, currentUser);
+      await dataStore.updateUnitPrice(editingPriceUnit.id, newPrice, currentUser);
       setUnits(dataStore.getUnits());
-      setMessage({ type: 'success', text: `Harga sewa unit ${editingPriceUnit.kode} berhasil diubah ke ${formatRupiah(newPrice)} (Harga di kontrak aktif tetap terkunci).` });
+      setMessage({ type: 'success', text: `Harga sewa unit ${editingPriceUnit.kode} berhasil diubah ke ${formatRupiah(newPrice)}.` });
       setEditingPriceUnit(null);
       setPriceModalError(null);
     } catch (err: any) {
       setPriceModalError(parseErrorMessage(err));
+    } finally {
+      setIsUpdating(false);
     }
   };
 
-  const handleUpdateStatus = () => {
+  const handleUpdateStatus = async () => {
     if (!editingStatusUnit || !currentUser) return;
     try {
+      setIsUpdating(true);
       setStatusModalError(null);
-      dataStore.updateUnitStatus(editingStatusUnit.id, newStatus, currentUser);
+      await dataStore.updateUnitStatus(editingStatusUnit.id, newStatus, currentUser);
       setUnits(dataStore.getUnits());
       setMessage({ type: 'success', text: `Status unit ${editingStatusUnit.kode} berhasil diubah ke '${newStatus}'.` });
       setEditingStatusUnit(null);
       setStatusModalError(null);
     } catch (err: any) {
       setStatusModalError(parseErrorMessage(err));
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -301,7 +317,7 @@ export const Units: React.FC = () => {
                           setNewPrice(u.harga_sewa_bulanan);
                         }}
                         title="Ubah Harga Sewa (Khusus Pemilik)"
-                        className="p-1.5 text-purple-700 hover:bg-purple-50 rounded-lg text-xs font-medium border border-purple-200 flex items-center gap-1"
+                        className="p-1.5 text-muted-foreground hover:text-primary hover:bg-emerald-50 rounded-lg text-xs font-medium border border-border flex items-center gap-1"
                       >
                         <Edit2 className="w-3.5 h-3.5" /> Harga
                       </button>
@@ -319,7 +335,7 @@ export const Units: React.FC = () => {
         <div className="fixed inset-0 bg-foreground/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-card rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
             <h3 className="font-bold text-foreground text-lg flex items-center gap-2">
-              <Shield className="w-5 h-5 text-purple-600" /> Ubah Harga Sewa Kamar {editingPriceUnit.kode}
+              <Shield className="w-5 h-5 text-primary" /> Ubah Harga Sewa Kamar {editingPriceUnit.kode}
             </h3>
             <p className="text-xs text-muted-foreground">
               Harga yang diubah Pemilik berlaku untuk kontrak baru berikutnya. Harga pada kontrak yang sedang aktif tetap terkunci.
@@ -341,7 +357,7 @@ export const Units: React.FC = () => {
                   setNewPrice(Number(e.target.value));
                   if (priceModalError) setPriceModalError(null);
                 }}
-                className="w-full text-sm border border-border rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                className="w-full text-sm border border-border rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-primary focus:outline-none"
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">
@@ -355,10 +371,11 @@ export const Units: React.FC = () => {
                 Batal
               </button>
               <button
+                disabled={isUpdating}
                 onClick={handleUpdatePrice}
-                className="px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold shadow-sm"
+                className="px-4 py-2 text-sm bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-semibold shadow-sm disabled:opacity-50"
               >
-                Simpan Perubahan
+                {isUpdating ? 'Menyimpan...' : 'Simpan Perubahan'}
               </button>
             </div>
           </div>
@@ -406,10 +423,11 @@ export const Units: React.FC = () => {
                 Batal
               </button>
               <button
+                disabled={isUpdating}
                 onClick={handleUpdateStatus}
-                className="px-4 py-2 text-sm bg-primary hover:bg-primary/90 text-white rounded-xl font-semibold shadow-sm"
+                className="px-4 py-2 text-sm bg-primary hover:bg-primary/90 text-white rounded-xl font-semibold shadow-sm disabled:opacity-50"
               >
-                Simpan Status
+                {isUpdating ? 'Menyimpan...' : 'Simpan Status'}
               </button>
             </div>
           </div>

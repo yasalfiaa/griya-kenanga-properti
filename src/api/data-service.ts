@@ -94,7 +94,7 @@ class DataStore {
     return [...this.units];
   }
 
-  public updateUnitStatus(id: string, newStatus: UnitStatus, actor: Profile): void {
+  public async updateUnitStatus(id: string, newStatus: UnitStatus, actor: Profile): Promise<void> {
     const unit = this.units.find(u => u.id === id);
     if (!unit) throw new Error('Unit tidak ditemukan');
 
@@ -108,18 +108,41 @@ class DataStore {
       }
     }
 
+    if (isSupabaseConfigured) {
+      const { error } = await supabase
+        .from('unit')
+        .update({ status: newStatus })
+        .eq('id', id);
+      if (error) {
+        throw new Error(`Gagal menyimpan perubahan status unit ke server: ${error.message}`);
+      }
+    }
+
     const oldStatus = unit.status;
     unit.status = newStatus;
 
     this.logAudit(actor, 'status:unit', 'unit', id, { status: oldStatus }, { status: newStatus });
   }
 
-  public updateUnitPrice(id: string, newPrice: number, actor: Profile): void {
+  public async updateUnitPrice(id: string, newPrice: number, actor: Profile): Promise<void> {
     if (actor.peran !== 'pemilik') {
       throw new Error('Hanya Pemilik yang berhak mengubah harga sewa unit.');
     }
+    if (typeof newPrice !== 'number' || isNaN(newPrice) || newPrice <= 0) {
+      throw new Error('Harga sewa unit harus berupa angka lebih besar dari 0.');
+    }
     const unit = this.units.find(u => u.id === id);
     if (!unit) throw new Error('Unit tidak ditemukan');
+
+    if (isSupabaseConfigured) {
+      const { error } = await supabase
+        .from('unit')
+        .update({ harga_sewa_bulanan: newPrice })
+        .eq('id', id);
+      if (error) {
+        throw new Error(`Gagal menyimpan perubahan harga sewa unit ke server: ${error.message}`);
+      }
+    }
 
     const oldPrice = unit.harga_sewa_bulanan;
     unit.harga_sewa_bulanan = newPrice;
@@ -963,6 +986,20 @@ class DataStore {
       dibuat_pada: new Date().toISOString(),
     };
     this.auditLogs.unshift(log); // Taruh di awal
+
+    if (isSupabaseConfigured) {
+      supabase.from('audit_log').insert({
+        pelaku_id: actor.id,
+        peran: actor.peran,
+        aksi,
+        tabel,
+        data_id,
+        sebelum,
+        sesudah,
+      }).then(({ error }) => {
+        if (error) console.warn('Gagal mencatat audit log ke Supabase:', error.message);
+      });
+    }
   }
 }
 
