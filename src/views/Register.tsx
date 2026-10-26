@@ -4,6 +4,15 @@ import { Home, Mail, Lock, User, Phone, ArrowRight, CheckCircle2, AlertCircle, L
 import { useAuth } from '../context/AuthContext';
 import { supabase, isSupabaseConfigured } from '../api/supabase';
 import { MOCK_PROFILES } from '../data/mock-data';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
 
 export const Register: React.FC = () => {
   const navigate = useNavigate();
@@ -105,23 +114,44 @@ export const Register: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-muted/50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full space-y-6">
-        <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-primary to-primary/70 mx-auto flex items-center justify-center text-white shadow-md shadow-primary/20">
-            <Home className="w-6 h-6" />
-          </div>
-          <h1 className="text-2xl font-extrabold text-foreground tracking-tight">
-            Daftar Penghuni Baru
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            Pendaftaran otomatis sebagai peran <span className="font-semibold text-primary">Penyewa</span> (PRD Bagian 3)
-          </p>
-        </div>
+    <div className="relative min-h-screen flex items-center justify-center p-4 overflow-hidden">
+      {/* Background foto real properti hunian di siang hari dengan efek blur 75% */}
+      <div
+        className="absolute inset-0 bg-cover bg-center scale-110 filter blur-[14px] brightness-95"
+        style={{
+          backgroundImage: `url('https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=2000&q=80')`,
+        }}
+        aria-hidden="true"
+      />
+      {/* Overlay siang hari agar kartu tetap kontras dan bersih */}
+      <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-[1px]" aria-hidden="true" />
 
-        <div className="bg-card rounded-2xl border border-border p-6 shadow-sm space-y-4">
+      {/* Kartu Autentikasi Register */}
+      <Card className="relative z-10 flex w-full max-w-[440px] shadow-2xl flex-col gap-6 p-6 md:p-8 bg-card/95 backdrop-blur-md border border-border/80 rounded-2xl">
+        <CardHeader className="flex flex-col items-center gap-3 p-0 text-center">
+          {/* Logo aplikasi tetap dipertahankan */}
+          <div className="relative flex size-[68px] shrink-0 items-center justify-center rounded-full backdrop-blur-xl md:size-20 before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-b before:from-primary/20 before:to-transparent before:opacity-30">
+            <div className="relative z-10 flex size-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-primary to-primary/80 text-white shadow-md shadow-primary/25 md:size-14">
+              <Home className="size-6 md:size-7" />
+            </div>
+          </div>
+
+          {/* Title & Subtitle sesuai instruksi */}
+          <div className="flex flex-col space-y-1.5 text-center">
+            <CardTitle className="text-xl md:text-2xl font-extrabold text-foreground tracking-tight">
+              Daftar Penyewa Baru
+            </CardTitle>
+            <CardDescription className="text-xs text-muted-foreground tracking-[-0.006em]">
+              Lengkapi data diri untuk mengakses aplikasi
+            </CardDescription>
+          </div>
+        </CardHeader>
+
+        <Separator />
+
+        <CardContent className="p-0">
           {error && (
-            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2">
+            <div className="mb-4 p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs flex items-start gap-2">
               <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
               <span>{error}</span>
             </div>
@@ -135,13 +165,14 @@ export const Register: React.FC = () => {
               </div>
               <Link
                 to="/login"
-                className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-2 px-3 rounded-lg shadow-sm text-xs flex items-center justify-center gap-1.5 transition-colors"
+                className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-2.5 px-3 rounded-lg shadow-sm text-xs flex items-center justify-center gap-1.5 transition-colors"
               >
                 Menuju Halaman Masuk <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
           ) : (
-            <form onSubmit={handleRegister} className="space-y-4">
+            <form onSubmit={handleRegister} className="flex flex-col gap-4">
+              {/* Komponen text input: Nama Lengkap */}
               <div>
                 <label className="text-xs font-semibold text-foreground block mb-1">Nama Lengkap</label>
                 <div className="relative">
@@ -151,12 +182,13 @@ export const Register: React.FC = () => {
                     value={nama}
                     onChange={(e) => setNama(e.target.value)}
                     placeholder="Nama sesuai KTP"
-                    className="w-full text-xs border border-border rounded-xl pl-9 pr-3 py-2.5 focus:ring-2 focus:ring-ring focus:outline-none"
+                    className="w-full text-xs border border-border rounded-xl pl-9 pr-3 py-2.5 focus:ring-2 focus:ring-ring focus:outline-none bg-background/80"
                     required
                   />
                 </div>
               </div>
 
+              {/* Komponen text input: Email */}
               <div>
                 <label className="text-xs font-semibold text-foreground block mb-1">Alamat Email</label>
                 <div className="relative">
@@ -166,12 +198,13 @@ export const Register: React.FC = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="email@domain.com"
-                    className="w-full text-xs border border-border rounded-xl pl-9 pr-3 py-2.5 focus:ring-2 focus:ring-ring focus:outline-none"
+                    className="w-full text-xs border border-border rounded-xl pl-9 pr-3 py-2.5 focus:ring-2 focus:ring-ring focus:outline-none bg-background/80"
                     required
                   />
                 </div>
               </div>
 
+              {/* Komponen text input: Nomor Whatsapp */}
               <div>
                 <label className="text-xs font-semibold text-foreground block mb-1">Nomor WhatsApp / HP</label>
                 <div className="relative">
@@ -181,12 +214,13 @@ export const Register: React.FC = () => {
                     value={noHp}
                     onChange={(e) => setNoHp(e.target.value)}
                     placeholder="081234567890"
-                    className="w-full text-xs border border-border rounded-xl pl-9 pr-3 py-2.5 focus:ring-2 focus:ring-ring focus:outline-none"
+                    className="w-full text-xs border border-border rounded-xl pl-9 pr-3 py-2.5 focus:ring-2 focus:ring-ring focus:outline-none bg-background/80"
                     required
                   />
                 </div>
               </div>
 
+              {/* Komponen text input: Kata Sandi */}
               <div>
                 <label className="text-xs font-semibold text-foreground block mb-1">Kata Sandi</label>
                 <div className="relative">
@@ -196,16 +230,16 @@ export const Register: React.FC = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Minimal 6 karakter"
-                    className="w-full text-xs border border-border rounded-xl pl-9 pr-3 py-2.5 focus:ring-2 focus:ring-ring focus:outline-none"
+                    className="w-full text-xs border border-border rounded-xl pl-9 pr-3 py-2.5 focus:ring-2 focus:ring-ring focus:outline-none bg-background/80"
                     required
                   />
                 </div>
               </div>
 
-              <button
+              <Button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 text-white font-semibold py-2.5 px-4 rounded-xl shadow-sm transition-colors text-xs flex items-center justify-center gap-1.5"
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-10 rounded-lg shadow-sm transition-colors text-xs flex items-center justify-center gap-1.5 mt-2"
               >
                 {loading ? (
                   <>
@@ -216,18 +250,18 @@ export const Register: React.FC = () => {
                     Daftar Akun Penyewa <ArrowRight className="w-4 h-4" />
                   </>
                 )}
-              </button>
+              </Button>
             </form>
           )}
-        </div>
 
-        <div className="text-center text-xs text-muted-foreground">
-          Sudah punya akun?{' '}
-          <Link to="/login" className="text-primary font-semibold hover:underline">
-            Masuk Sekarang
-          </Link>
-        </div>
-      </div>
+          <div className="mt-5 text-center text-xs text-muted-foreground">
+            Sudah punya akun?{' '}
+            <Link to="/login" className="text-primary font-semibold hover:underline">
+              Masuk Sekarang
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

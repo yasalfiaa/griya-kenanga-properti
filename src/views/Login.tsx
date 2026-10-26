@@ -60,35 +60,18 @@ export const Login: React.FC = () => {
     }
   };
 
-  const handleQuickLogin = async (quickEmail: string) => {
-    setEmail(quickEmail);
-    setPassword('Latihan#2026');
-    setError('');
-    setIsLoading(true);
-    try {
-      const res = await loginAs(quickEmail, 'Latihan#2026');
-      if (res.success) {
-        navigate(tujuanSetelahLogin, { replace: true });
-      } else {
-        setError(res.message || 'Gagal masuk dengan akun uji.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div className="relative min-h-screen flex items-center justify-center p-4 overflow-hidden">
-      {/* Background foto real properti hunian dengan efek blur 75% */}
+      {/* Background foto real properti hunian di siang hari dengan efek blur 75% */}
       <div
-        className="absolute inset-0 bg-cover bg-center scale-110 filter blur-[14px] brightness-[0.75]"
+        className="absolute inset-0 bg-cover bg-center scale-110 filter blur-[14px] brightness-95"
         style={{
-          backgroundImage: `url('https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=2000&q=80')`,
+          backgroundImage: `url('https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=2000&q=80')`,
         }}
         aria-hidden="true"
       />
-      {/* Overlay halus agar teks dan kartu memiliki kontras maksimal */}
-      <div className="absolute inset-0 bg-slate-950/35" aria-hidden="true" />
+      {/* Overlay siang hari agar kartu tetap kontras dan bersih */}
+      <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-[1px]" aria-hidden="true" />
 
       {/* Kartu Autentikasi */}
       <Card className="relative z-10 flex w-full max-w-[440px] shadow-2xl flex-col gap-6 p-6 md:p-8 bg-card/95 backdrop-blur-md border border-border/80 rounded-2xl">
@@ -169,7 +152,7 @@ export const Login: React.FC = () => {
               </div>
             </div>
 
-            {/* Keep me logged in (Ingat saya) & Ganti forgot password menjadi link Daftar Akun Baru */}
+            {/* Keep me logged in (Ingat saya) & Tautan Daftar Akun Baru */}
             <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
               <div className="flex items-center gap-2">
                 <Checkbox
@@ -210,43 +193,6 @@ export const Login: React.FC = () => {
               )}
             </Button>
           </form>
-
-          {/* Akses Cepat Akun Uji */}
-          <div className="mt-5 pt-4 border-t border-border space-y-2">
-            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
-              Akses Cepat Akun Uji (Password: Latihan#2026):
-            </span>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('ratna@griyakenanga.test')}
-                className="p-2 border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-900 rounded-xl font-medium text-left truncate transition-colors"
-              >
-                👑 Ratna (Pemilik)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('bayu@griyakenanga.test')}
-                className="p-2 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 rounded-xl font-medium text-left truncate transition-colors"
-              >
-                🛠️ Bayu (Pengelola)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('dimas@griyakenanga.test')}
-                className="p-2 border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-900 rounded-xl font-medium text-left truncate transition-colors"
-              >
-                👤 Dimas (Penyewa)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('fajar@griyakenanga.test')}
-                className="p-2 border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-xl font-medium text-left truncate transition-colors"
-              >
-                👤 Fajar (Uji KTP)
-              </button>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>
