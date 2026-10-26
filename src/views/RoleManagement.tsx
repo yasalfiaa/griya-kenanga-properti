@@ -1,14 +1,44 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { dataStore } from '../api/data-service';
-import { MOCK_PROFILES } from '../data/mock-data';
 import { Profile, RoleType } from '../types/database';
-import { Shield, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { supabase, isSupabaseConfigured } from '../api/supabase';
 
 export const RoleManagement: React.FC = () => {
   const { currentUser, role } = useAuth();
-  const [profiles, setProfiles] = useState<Profile[]>(() => JSON.parse(JSON.stringify(MOCK_PROFILES)));
+  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const loadProfiles = async () => {
+    try {
+      if (isSupabaseConfigured) {
+        const { data } = await supabase.from('profiles').select('*').order('nama_lengkap', { ascending: true });
+        if (data && data.length > 0) {
+          setProfiles(data as Profile[]);
+          // Sinkronkan juga ke dataStore
+          (dataStore as any).profiles = data;
+          return;
+        }
+      }
+      // Fallback ke dataStore (urut abjad A-Z berdasarkan nama lengkap)
+      const fallback = dataStore.getProfiles().sort((a, b) =>
+        a.nama_lengkap.localeCompare(b.nama_lengkap, 'id', { sensitivity: 'base' })
+      );
+      setProfiles(fallback);
+    } catch (e) {
+      console.warn('Gagal memuat profil dari Supabase:', e);
+      const fallback = dataStore.getProfiles().sort((a, b) =>
+        a.nama_lengkap.localeCompare(b.nama_lengkap, 'id', { sensitivity: 'base' })
+      );
+      setProfiles(fallback);
+    }
+  };
+
+  useEffect(() => {
+    loadProfiles();
+  }, []);
 
   if (role !== 'pemilik') {
     return (
@@ -20,7 +50,7 @@ export const RoleManagement: React.FC = () => {
     );
   }
 
-  const handleChangeRole = (userId: string, newRole: RoleType) => {
+  const handleChangeRole = async (userId: string, newRole: RoleType) => {
     // BR-10: Pemilik tidak bisa mengubah peran akunnya sendiri
     if (userId === currentUser?.id) {
       setMessage({ type: 'error', text: 'Pemilik tidak dapat mengubah peran akunnya sendiri.' });
@@ -28,13 +58,20 @@ export const RoleManagement: React.FC = () => {
     }
 
     const targetUser = profiles.find(p => p.id === userId);
-    if (targetUser) {
-      targetUser.peran = newRole;
-      setProfiles([...profiles]);
+    if (!targetUser) return;
+
+    setLoading(true);
+    try {
+      await dataStore.updateUserRole(userId, newRole, currentUser!);
+      await loadProfiles();
       setMessage({
         type: 'success',
         text: `Peran akun ${targetUser.nama_lengkap} berhasil diubah menjadi '${newRole}'.`,
       });
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err?.message || 'Gagal mengubah peran akun.' });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -84,7 +121,9 @@ export const RoleManagement: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {profiles.map((p) => {
+              {[...profiles]
+                .sort((a, b) => a.nama_lengkap.localeCompare(b.nama_lengkap, 'id', { sensitivity: 'base' }))
+                .map((p) => {
                 const isSelf = p.id === currentUser?.id;
                 return (
                   <tr key={p.id} className="hover:bg-muted/60 transition-colors">
@@ -114,8 +153,9 @@ export const RoleManagement: React.FC = () => {
                       ) : (
                         <select
                           value={p.peran}
+                          disabled={loading}
                           onChange={(e) => handleChangeRole(p.id, e.target.value as RoleType)}
-                          className="text-xs font-semibold bg-card border border-border rounded-lg px-2.5 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-purple-500"
+                          className="text-xs font-semibold bg-card border border-border rounded-lg px-2.5 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-purple-500 disabled:opacity-50"
                         >
                           <option value="penyewa">Penyewa</option>
                           <option value="pengelola">Pengelola</option>

@@ -6,6 +6,7 @@ import {
   Pembayaran,
   LaporanKerusakan,
   Profile,
+  RoleType,
   IdentitasPenyewa,
   VerifikasiStatus,
   AuditLog,
@@ -124,6 +125,36 @@ class DataStore {
     unit.harga_sewa_bulanan = newPrice;
 
     this.logAudit(actor, 'harga:unit', 'unit', id, { harga: oldPrice }, { harga: newPrice });
+  }
+
+  // --- PROFILES ---
+  public getProfiles(): Profile[] {
+    return [...this.profiles];
+  }
+
+  public async updateUserRole(userId: string, newRole: RoleType, actor: Profile): Promise<void> {
+    if (actor.peran !== 'pemilik') {
+      throw new Error('Hanya Pemilik yang berhak mengubah peran akun.');
+    }
+    if (userId === actor.id) {
+      throw new Error('Pemilik tidak dapat mengubah peran akunnya sendiri.');
+    }
+    const target = this.profiles.find(p => p.id === userId);
+    if (!target) throw new Error('Pengguna tidak ditemukan');
+    const oldRole = target.peran;
+
+    if (isSupabaseConfigured) {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ peran: newRole })
+        .eq('id', userId);
+      if (error) {
+        throw new Error(error.message);
+      }
+    }
+
+    target.peran = newRole;
+    this.logAudit(actor, 'update:peran_akun', 'profiles', userId, { peran: oldRole }, { peran: newRole });
   }
 
   // --- PENYEWA & IDENTITAS ---
