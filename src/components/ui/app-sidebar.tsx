@@ -40,7 +40,6 @@ import {
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/context/AuthContext';
 import { dataStore } from '@/api/data-service';
-import { MOCK_PROFILES } from '@/data/mock-data';
 
 interface NavItem {
   to: string;
@@ -71,8 +70,31 @@ const MENU_PEMILIK: NavItem[] = [
 ];
 
 export const AppSidebar: React.FC = () => {
-  const { role, currentUser, switchRoleUser } = useAuth();
+  const { role } = useAuth();
   const location = useLocation();
+
+  const [isOnline, setIsOnline] = React.useState<boolean>(true);
+  const [lastUpdated, setLastUpdated] = React.useState<string>('');
+
+  React.useEffect(() => {
+    setIsOnline(typeof navigator !== 'undefined' ? navigator.onLine : true);
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    const now = new Date();
+    const jam = String(now.getHours()).padStart(2, '0');
+    const menit = String(now.getMinutes()).padStart(2, '0');
+    setLastUpdated(`Hari ini, ${jam}:${menit} WIB`);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const handleResetData = () => {
     if (confirm('Apakah Anda yakin ingin mengatur ulang data demo ke kondisi awal (15 Okt 2026)?')) {
@@ -164,60 +186,31 @@ export const AppSidebar: React.FC = () => {
       </SidebarContent>
 
       <SidebarFooter>
-        {/* Info properti (kartu di sidebar lama) */}
-        <div className="bg-muted/50 border border-border/80 rounded-xl p-3 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
-          <div className="font-semibold text-foreground mb-1 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
-            Griya Kenanga Sleman
-          </div>
-          <p className="leading-relaxed">
-            Tanggal Acuan Data: <span className="font-medium text-foreground">15 Okt 2026</span>
-          </p>
-          <p className="mt-1 text-[11px] text-muted-foreground">Total 24 Unit Kos & Studio</p>
-        </div>
-
-        {/* Kontrol demo (dipindah dari Navbar lama; fitur tidak hilang) */}
-        <div className="space-y-2 px-1 pb-1 group-data-[collapsible=icon]:hidden">
-          <div className="flex justify-end">
+        {/* Info properti */}
+        <div className="bg-muted/30 border border-slate-200/80 dark:border-slate-800 rounded-lg p-3 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden space-y-1.5">
+          <div className="flex items-center justify-between gap-1.5">
+            <div className="font-semibold text-foreground flex items-center gap-1.5 text-xs min-w-0">
+              <span
+                className={cn(
+                  'w-2 h-2 rounded-full shrink-0 transition-colors',
+                  isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
+                )}
+                title={isOnline ? 'Terhubung (Online)' : 'Koneksi Terputus (Offline)'}
+              />
+              <span className="truncate">Griya Kenanga Sleman, Yogyakarta</span>
+            </div>
             <button
               onClick={handleResetData}
-              title="Reset Data Demo ke Tanggal Acuan 15 Okt 2026"
-              className="p-1.5 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors"
+              title="Reset data demo"
+              className="p-1 text-muted-foreground hover:text-primary hover:bg-muted rounded-md transition-colors shrink-0"
               aria-label="Reset data demo"
             >
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
           </div>
-          <label className="block">
-            <span className="sr-only">Ganti akun demo</span>
-            <select
-              value={currentUser?.id || ''}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => switchRoleUser(e.target.value)}
-              className="w-full text-xs bg-sidebar border border-border rounded-lg px-2 py-1.5 text-foreground font-medium focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
-            >
-              <optgroup label="Pemilik">
-                {MOCK_PROFILES.filter((p: { peran: string }) => p.peran === 'pemilik').map((p: { id: string; nama_lengkap: string }) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nama_lengkap} (Pemilik)
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="Pengelola">
-                {MOCK_PROFILES.filter((p: { peran: string }) => p.peran === 'pengelola').map((p: { id: string; nama_lengkap: string }) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nama_lengkap} (Pengelola)
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="Penyewa (Kasus Uji)">
-                {MOCK_PROFILES.filter((p: { peran: string }) => p.peran === 'penyewa').slice(0, 5).map((p: { id: string; nama_lengkap: string; email: string }) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nama_lengkap} ({p.email.split('@')[0]})
-                  </option>
-                ))}
-              </optgroup>
-            </select>
-          </label>
+          <p className="text-[11px] text-muted-foreground">
+            Terakhir diperbarui: {lastUpdated || 'Hari ini, 11:34 WIB'}
+          </p>
         </div>
       </SidebarFooter>
     </Sidebar>
