@@ -665,14 +665,6 @@ class DataStore {
   // atau sesi otentikasi tidak valid, agar mode demo tetap berjalan.
 
   /**
-   * Data hasil seed (Data_Contoh_Properti) dianggap dummy: status verifikasinya
-   * TIDAK boleh di-reset ke antrean saat penggunanya menyimpan ulang identitas.
-   * Reset 'belum' hanya berlaku untuk pengguna baru di luar data dummy.
-   */
-  private isSeedDummyPenyewa(penyewaId: string): boolean {
-    return MOCK_IDENTITAS.some(i => i.penyewa_id === penyewaId);
-  }
-
   /** Simpan/upsert data identitas penyewa (KTP) ke tabel identitas_penyewa */
   public async saveTenantIdentity(data: {
     penyewa_id: string;
@@ -682,11 +674,11 @@ class DataStore {
     kontak_darurat_hp: string;
     foto_ktp_path?: string;
   }): Promise<void> {
-    // Reset antrean verifikasi hanya untuk pengguna di luar data dummy (seed)
     const idx = this.identitas.findIndex(i => i.penyewa_id === data.penyewa_id);
-    const isDummy = this.isSeedDummyPenyewa(data.penyewa_id);
-    const newStatus: VerifikasiStatus =
-      isDummy && idx >= 0 ? this.identitas[idx].status_verifikasi : 'belum';
+    // Saat penyewa menyimpan identitas baru atau melakukan verifikasi ulang:
+    // status selalu masuk/kembali ke antrean 'belum' untuk diverifikasi oleh Pengelola
+    const newStatus: VerifikasiStatus = 'belum';
+    const finalFotoPath = data.foto_ktp_path ?? (idx >= 0 ? this.identitas[idx].foto_ktp_path : null) ?? null;
 
     if (idx >= 0) {
       this.identitas[idx] = {
@@ -695,8 +687,11 @@ class DataStore {
         alamat_asal: data.alamat_asal,
         kontak_darurat_nama: data.kontak_darurat_nama,
         kontak_darurat_hp: data.kontak_darurat_hp,
-        foto_ktp_path: data.foto_ktp_path ?? this.identitas[idx].foto_ktp_path,
-        status_verifikasi: newStatus, // data dummy tetap memakai status seed-nya
+        foto_ktp_path: finalFotoPath ?? undefined,
+        status_verifikasi: newStatus,
+        diverifikasi_oleh: null,
+        diverifikasi_pada: null,
+        catatan_verifikasi: null,
       };
     } else {
       this.identitas.push({
@@ -705,8 +700,11 @@ class DataStore {
         alamat_asal: data.alamat_asal,
         kontak_darurat_nama: data.kontak_darurat_nama,
         kontak_darurat_hp: data.kontak_darurat_hp,
-        foto_ktp_path: data.foto_ktp_path,
+        foto_ktp_path: finalFotoPath ?? undefined,
         status_verifikasi: newStatus,
+        diverifikasi_oleh: null,
+        diverifikasi_pada: null,
+        catatan_verifikasi: null,
       });
     }
 
@@ -717,8 +715,11 @@ class DataStore {
       alamat_asal: data.alamat_asal,
       kontak_darurat_nama: data.kontak_darurat_nama,
       kontak_darurat_hp: data.kontak_darurat_hp,
-      foto_ktp_path: data.foto_ktp_path ?? null,
+      foto_ktp_path: finalFotoPath,
       status_verifikasi: newStatus,
+      diverifikasi_oleh: null,
+      diverifikasi_pada: null,
+      catatan_verifikasi: null,
     }, { onConflict: 'penyewa_id' });
     if (error) {
       throw new Error(`Gagal menyimpan identitas ke database: ${error.message}`);

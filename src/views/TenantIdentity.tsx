@@ -9,17 +9,27 @@ import {
   getSignedImageUrl,
   STORAGE_BUCKETS,
 } from '../api/storage';
-import { CheckCircle2, AlertCircle, Image as ImageIcon } from 'lucide-react';
+import {
+  CheckCircle2,
+  AlertCircle,
+  XCircle,
+  Clock,
+  Image as ImageIcon,
+  Loader2,
+  FileText,
+} from 'lucide-react';
 
 export const TenantIdentity: React.FC = () => {
   const { currentUser } = useAuth();
-  const currentIdentity = dataStore.getTenants().find(t => t.profile.id === currentUser?.id)?.identitas;
+  const [identitas, setIdentitas] = useState(() =>
+    dataStore.getTenants().find(t => t.profile.id === currentUser?.id)?.identitas
+  );
 
-  const [nik, setNik] = useState(currentIdentity?.nik || '');
-  const [alamatAsal, setAlamatAsal] = useState(currentIdentity?.alamat_asal || '');
-  const [kontakNama, setKontakNama] = useState(currentIdentity?.kontak_darurat_nama || '');
-  const [kontakHp, setKontakHp] = useState(currentIdentity?.kontak_darurat_hp || '');
-  const [fotoPath, setFotoPath] = useState(currentIdentity?.foto_ktp_path || '');
+  const [nik, setNik] = useState('');
+  const [alamatAsal, setAlamatAsal] = useState('');
+  const [kontakNama, setKontakNama] = useState('');
+  const [kontakHp, setKontakHp] = useState('');
+  const [fotoPath, setFotoPath] = useState('');
   const [fotoFile, setFotoFile] = useState<File | null>(null);
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
   const [existingPreview, setExistingPreview] = useState<string | null>(null);
@@ -27,10 +37,24 @@ export const TenantIdentity: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Sinkronkan state form dengan data identitas saat currentUser atau dataStore termuat
+  useEffect(() => {
+    const tenant = dataStore.getTenants().find(t => t.profile.id === currentUser?.id);
+    const curr = tenant?.identitas;
+    setIdentitas(curr);
+    if (curr) {
+      setNik(curr.nik || '');
+      setAlamatAsal(curr.alamat_asal || '');
+      setKontakNama(curr.kontak_darurat_nama || '');
+      setKontakHp(curr.kontak_darurat_hp || '');
+      setFotoPath(curr.foto_ktp_path || '');
+    }
+  }, [currentUser]);
+
   // Pratinjau foto yang sudah tersimpan (bucket KTP privat -> signed URL 5 menit)
   useEffect(() => {
     let cancelled = false;
-    const path = currentIdentity?.foto_ktp_path || fotoPath;
+    const path = fotoPath || identitas?.foto_ktp_path;
     if (path && isHttpUrl(path)) {
       setExistingPreview(path);
     } else if (path) {
@@ -41,8 +65,7 @@ export const TenantIdentity: React.FC = () => {
       setExistingPreview(null);
     }
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIdentity?.foto_ktp_path, fotoPath]);
+  }, [fotoPath, identitas?.foto_ktp_path]);
 
   // Bersihkan object URL pratinjau lokal saat berganti / unmount
   useEffect(() => {
@@ -74,6 +97,7 @@ export const TenantIdentity: React.FC = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setMessage(null);
     if (!currentUser) {
       setMessage({ type: 'error', text: 'Sesi pengguna tidak ditemukan. Silakan login ulang.' });
       return;
@@ -83,9 +107,11 @@ export const TenantIdentity: React.FC = () => {
       return;
     }
 
+    const wasRejected = identitas?.status_verifikasi === 'ditolak';
+
     setIsSaving(true);
     try {
-      // 1) Unggah foto KTP ke Supabase Storage jika pengguna memilih berkas baru
+      // 1) Unggah berkas foto KTP ke Supabase Storage jika pengguna memilih berkas baru
       let savedPath = fotoPath;
       if (fotoFile) {
         const doc = await uploadImage({
@@ -94,7 +120,6 @@ export const TenantIdentity: React.FC = () => {
           kind: 'ktp',
           file: fotoFile,
         });
-        // Bucket privat: simpan PATH relatif ke database (URL signed bersifat sementara)
         savedPath = doc.path;
       }
 
@@ -108,13 +133,19 @@ export const TenantIdentity: React.FC = () => {
         foto_ktp_path: savedPath,
       });
 
+      // Perbarui identitas setelah berhasil disimpan
+      const updated = dataStore.getTenants().find(t => t.profile.id === currentUser.id)?.identitas;
+      setIdentitas(updated);
       setFotoPath(savedPath);
       setFotoFile(null);
       if (fotoPreview) URL.revokeObjectURL(fotoPreview);
       setFotoPreview(null);
+
       setMessage({
         type: 'success',
-        text: 'Data identitas KTP (termasuk foto) berhasil disimpan ke database.',
+        text: wasRejected
+          ? 'Data identitas dan foto KTP baru berhasil disimpan. Pengajuan verifikasi ulang Anda telah dikirim ke Pengelola.'
+          : 'Data identitas KTP (termasuk foto) berhasil disimpan dan diajukan untuk verifikasi.',
       });
     } catch (err: any) {
       setMessage({ type: 'error', text: err?.message || 'Terjadi kesalahan saat menyimpan data identitas.' });
@@ -126,13 +157,56 @@ export const TenantIdentity: React.FC = () => {
   return (
     <div className="max-w-2xl mx-auto space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">
-          Data Identitas Penyewa
+        <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
+          <FileText className="w-6 h-6 text-primary" /> Data Identitas Penyewa
         </h1>
         <p className="text-sm text-muted-foreground">
           Lengkapi data untuk aktivasi kontrak kamar sewa.
         </p>
       </div>
+
+      {/* Banner Status Verifikasi Identitas */}
+      {identitas?.status_verifikasi === 'ditolak' && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 shadow-sm space-y-2.5">
+          <div className="flex items-center gap-2 font-bold text-sm text-rose-800">
+            <XCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />
+            <span>Verifikasi Identitas Ditolak oleh Pengelola</span>
+          </div>
+          {identitas.catatan_verifikasi && (
+            <div className="p-3 bg-white/90 rounded-xl border border-rose-200/80 text-xs">
+              <span className="font-semibold text-rose-800 block mb-0.5">Alasan / Catatan Pengelola:</span>
+              <p className="text-rose-700 italic font-medium">"{identitas.catatan_verifikasi}"</p>
+            </div>
+          )}
+          <p className="text-xs text-rose-700 leading-relaxed">
+            Pengelola meminta Anda melakukan verifikasi ulang. Silakan periksa kembali data Anda, unggah berkas foto KTP baru yang jelas dan sesuai permintaan Pengelola di atas, lalu klik <strong>Simpan & Ajukan Verifikasi Ulang</strong> di bawah.
+          </p>
+        </div>
+      )}
+
+      {identitas?.status_verifikasi === 'belum' && (
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 shadow-sm flex items-start gap-3">
+          <Clock className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="text-xs space-y-1">
+            <h4 className="font-bold text-sm text-amber-900">Menunggu Verifikasi Pengelola</h4>
+            <p className="text-amber-800 leading-relaxed">
+              Data identitas dan foto KTP Anda telah tersimpan dan sedang dalam antrean pemeriksaan oleh Pengelola properti.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {identitas?.status_verifikasi === 'terverifikasi' && (
+        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 shadow-sm flex items-start gap-3">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+          <div className="text-xs space-y-1">
+            <h4 className="font-bold text-sm text-emerald-900">Identitas Terverifikasi</h4>
+            <p className="text-emerald-800 leading-relaxed">
+              Identitas KTP Anda telah diverifikasi dan disetujui oleh Pengelola properti. Kontrak sewa kamar Anda siap diaktifkan.
+            </p>
+          </div>
+        </div>
+      )}
 
       {message && (
         <div
@@ -251,7 +325,7 @@ export const TenantIdentity: React.FC = () => {
               <span className="font-semibold text-foreground block truncate">
                 {fotoFile
                   ? fotoFile.name
-                  : (fotoPath || currentIdentity?.foto_ktp_path)
+                  : (fotoPath || identitas?.foto_ktp_path)
                     ? 'Foto KTP terlampir'
                     : 'Belum ada foto KTP diunggah'}
               </span>
@@ -275,7 +349,16 @@ export const TenantIdentity: React.FC = () => {
             disabled={isSaving}
             className="w-full bg-primary hover:bg-primary/90 disabled:opacity-60 disabled:cursor-wait text-white font-semibold py-2.5 px-4 rounded-xl shadow-sm transition-colors text-sm flex items-center justify-center gap-2"
           >
-            {isSaving ? 'Mengunggah & Menyimpan...' : 'Simpan Data Identitas'}
+            {isSaving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Mengunggah & Menyimpan...
+              </>
+            ) : identitas?.status_verifikasi === 'ditolak' ? (
+              'Simpan & Ajukan Verifikasi Ulang'
+            ) : (
+              'Simpan Data Identitas'
+            )}
           </button>
         </div>
       </form>

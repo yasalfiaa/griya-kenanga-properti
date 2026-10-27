@@ -67,4 +67,40 @@ describe('Verifikasi Identitas Penyewa - Validasi Alasan Penolakan', () => {
     const tenant = dataStore.getTenants().find(t => t.profile.id === penyewaDenganIdentitas);
     expect(tenant?.identitas?.status_verifikasi).toBe('terverifikasi');
   });
+
+  it('mengizinkan penyewa melakukan verifikasi ulang setelah ditolak: status kembali ke belum dan catatan direset', async () => {
+    // 1. Pengelola menolak identitas
+    await dataStore.verifyTenantIdentity(
+      penyewaDenganIdentitas,
+      'ditolak',
+      'Foto KTP buram, silakan upload ulang yang jelas.',
+      pengelola
+    );
+    let tenant = dataStore.getTenants().find(t => t.profile.id === penyewaDenganIdentitas);
+    expect(tenant?.identitas?.status_verifikasi).toBe('ditolak');
+    expect(tenant?.identitas?.catatan_verifikasi).toBe('Foto KTP buram, silakan upload ulang yang jelas.');
+
+    // 2. Penyewa memperbarui foto KTP / data identitas untuk verifikasi ulang
+    await dataStore.saveTenantIdentity({
+      penyewa_id: penyewaDenganIdentitas,
+      nik: tenant?.identitas?.nik || '3471961811966279',
+      alamat_asal: tenant?.identitas?.alamat_asal || 'Jl. Merdeka No. 41',
+      kontak_darurat_nama: tenant?.identitas?.kontak_darurat_nama || 'Keluarga',
+      kontak_darurat_hp: tenant?.identitas?.kontak_darurat_hp || '081234567890',
+      foto_ktp_path: `${penyewaDenganIdentitas}/ktp_baru.jpg`,
+    });
+
+    // 3. Status harus kembali ke 'belum' (antrean verifikasi pengelola) dan catatan dibersihkan
+    tenant = dataStore.getTenants().find(t => t.profile.id === penyewaDenganIdentitas);
+    expect(tenant?.identitas?.status_verifikasi).toBe('belum');
+    expect(tenant?.identitas?.foto_ktp_path).toBe(`${penyewaDenganIdentitas}/ktp_baru.jpg`);
+    expect(tenant?.identitas?.catatan_verifikasi).toBeNull();
+    expect(tenant?.identitas?.diverifikasi_oleh).toBeNull();
+
+    // 4. Pengelola dapat menyetujui verifikasi ulang tersebut
+    await dataStore.verifyTenantIdentity(penyewaDenganIdentitas, 'terverifikasi', '', pengelola);
+    tenant = dataStore.getTenants().find(t => t.profile.id === penyewaDenganIdentitas);
+    expect(tenant?.identitas?.status_verifikasi).toBe('terverifikasi');
+  });
 });
+
