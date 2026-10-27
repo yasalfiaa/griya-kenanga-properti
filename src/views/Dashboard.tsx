@@ -51,9 +51,24 @@ export const Dashboard: React.FC = () => {
     k => k.penyewa_id === currentUser?.id && k.status === 'aktif'
   );
   const tenantInvoices = data.invoices.filter(
-    i => i.kontrak?.penyewa_id === currentUser?.id && i.status !== 'dibatalkan'
+    i =>
+      i.kontrak?.penyewa_id === currentUser?.id &&
+      i.status !== 'dibatalkan' &&
+      (i.periode || '') >= '2026-10'
   );
-  const tenantPendingInvoice = tenantInvoices.find(i => i.status !== 'lunas');
+  // Urutkan tagihan belum lunas dari periode terlama (FIFO) mulai Oktober 2026 agar tunggakan terlama diselesaikan terlebih dahulu
+  const unpaidTenantInvoices = tenantInvoices
+    .filter(i => i.status !== 'lunas')
+    .sort((a, b) => (a.periode || '').localeCompare(b.periode || ''));
+  const tenantPendingInvoice = unpaidTenantInvoices[0];
+  const isTenantInvoiceOverdue = Boolean(
+    tenantPendingInvoice &&
+      tenantPendingInvoice.status !== 'lunas' &&
+      (tenantPendingInvoice.denda > 0 ||
+        (tenantPendingInvoice.jatuh_tempo &&
+          (tenantPendingInvoice.jatuh_tempo < '2026-10-15' ||
+            tenantPendingInvoice.jatuh_tempo < new Date().toISOString().slice(0, 10))))
+  );
   const tenantDamageReports = data.damageReports.filter(r => r.pelapor_id === currentUser?.id);
   const tenantIdentitas = data.tenants.find(t => t.profile.id === currentUser?.id)?.identitas;
 
@@ -212,18 +227,35 @@ export const Dashboard: React.FC = () => {
             {tenantPendingInvoice ? (
               <div className="space-y-1.5 text-sm">
                 <div className="flex justify-between py-1.5 border-b border-border">
+                  <span className="text-muted-foreground">Periode Tagihan</span>
+                  <span className="font-semibold text-foreground">
+                    {tenantPendingInvoice.periode ? tenantPendingInvoice.periode.slice(0, 7) : '-'}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-border">
                   <span className="text-muted-foreground">Nomor Invoice</span>
                   <span className="font-semibold text-foreground">{tenantPendingInvoice.nomor}</span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-border">
                   <span className="text-muted-foreground">Jatuh Tempo</span>
-                  <span className="font-semibold text-rose-600">
-                    {tenantPendingInvoice.jatuh_tempo} (Lewat Jatuh Tempo)
+                  <span
+                    className={`font-semibold ${
+                      isTenantInvoiceOverdue ? 'text-rose-600' : 'text-foreground'
+                    }`}
+                  >
+                    {tenantPendingInvoice.jatuh_tempo}
+                    {isTenantInvoiceOverdue && ' (Lewat Jatuh Tempo)'}
                   </span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-border">
                   <span className="text-muted-foreground">Denda Keterlambatan</span>
-                  <span className="font-semibold text-rose-600">
+                  <span
+                    className={`font-semibold ${
+                      isTenantInvoiceOverdue && tenantPendingInvoice.denda > 0
+                        ? 'text-rose-600'
+                        : 'text-foreground'
+                    }`}
+                  >
                     {formatRupiah(tenantPendingInvoice.denda)}
                   </span>
                 </div>
