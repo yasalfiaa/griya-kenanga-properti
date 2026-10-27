@@ -40,6 +40,14 @@ export const Tenants: React.FC = () => {
   const [tenants, setTenants] = useState(() => dataStore.getTenants());
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  useEffect(() => {
+    setTenants(dataStore.getTenants());
+  }, []);
+
+  const sortedTenants = [...tenants].sort((a, b) =>
+    a.profile.nama_lengkap.localeCompare(b.profile.nama_lengkap, 'id', { sensitivity: 'base' })
+  );
+
   // Modal Verifikasi (Pengelola)
   const [verifyingPenyewa, setVerifyingPenyewa] = useState<any | null>(null);
   const [verificationNotes, setVerificationNotes] = useState('');
@@ -182,7 +190,7 @@ export const Tenants: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {tenants.map(({ profile, identitas }) => (
+              {sortedTenants.map(({ profile, identitas }) => (
                 <tr key={profile.id} className="hover:bg-muted/60 transition-colors">
                   <td className="py-2 px-4">
                     <div className="font-semibold text-foreground">{profile.nama_lengkap}</div>

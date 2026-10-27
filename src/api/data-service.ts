@@ -58,7 +58,7 @@ class DataStore {
         supabase.from('tagihan').select('*').order('periode', { ascending: false }),
         supabase.from('pembayaran').select('*').order('tanggal_bayar', { ascending: false }),
         supabase.from('laporan_kerusakan').select('*').order('dibuat_pada', { ascending: false }),
-        supabase.from('profiles').select('*'),
+        supabase.from('profiles').select('*').order('nama_lengkap', { ascending: true }),
         supabase.from('identitas_penyewa').select('*'),
         supabase.from('audit_log').select('*').order('dibuat_pada', { ascending: false }),
       ]);
@@ -152,7 +152,9 @@ class DataStore {
 
   // --- PROFILES ---
   public getProfiles(): Profile[] {
-    return [...this.profiles];
+    return [...this.profiles].sort((a, b) =>
+      a.nama_lengkap.localeCompare(b.nama_lengkap, 'id', { sensitivity: 'base' })
+    );
   }
 
   public async updateUserRole(userId: string, newRole: RoleType, actor: Profile): Promise<void> {
@@ -187,7 +189,10 @@ class DataStore {
       .map(p => ({
         profile: p,
         identitas: this.identitas.find(i => i.penyewa_id === p.id),
-      }));
+      }))
+      .sort((a, b) =>
+        a.profile.nama_lengkap.localeCompare(b.profile.nama_lengkap, 'id', { sensitivity: 'base' })
+      );
   }
 
   public async verifyTenantIdentity(penyewaId: string, status: 'terverifikasi' | 'ditolak', notes: string, actor: Profile): Promise<void> {
