@@ -478,6 +478,9 @@ class DataStore {
     }
 
     if (isSupabaseConfigured) {
+      // Hitung tagihan sebelum RPC untuk periode ini
+      const countBefore = this.tagihan.filter(t => t.periode?.startsWith(periodeBulan)).length;
+
       // ---- Alur database transaksional, aman race condition (BR-06) ----
       const { data: res, error } = await supabase.rpc('fn_generate_monthly_invoices', {
         p_periode: `${periodeBulan}-01`,
@@ -485,26 +488,38 @@ class DataStore {
       if (error) {
         throw new Error(error.message);
       }
+
+      // Selalu reload dari Supabase agar state in-memory ter-update dengan invoice baru dari database
+      await this.loadFromSupabase();
+
+      const countAfter = this.tagihan.filter(t => t.periode?.startsWith(periodeBulan)).length;
+
       const row = Array.isArray(res) ? res[0] : res;
-      // out_dibuat bernilai NULL bila SEMUA tagihan periode ini sudah ada
-      // sebelumnya (dilewati fungsi DB, BUKAN ditolak) — perlakukan sebagai 0.
-      const dibuat = typeof row?.out_dibuat === 'number' ? row.out_dibuat : 0;
-      const dilewati = typeof row?.out_dilewati === 'number' ? row.out_dilewati : 0;
-      if (row && typeof row === 'object') {
-        return { dibuat, dilewati };
-      }
-      throw new Error(
-        'Tagihan untuk periode ini sudah pernah dibuat. Tidak ada tagihan baru yang ditambahkan.'
-      );
+      let dibuat = typeof row?.out_dibuat === 'number' ? row.out_dibuat : (countAfter - countBefore);
+      let dilewati = typeof row?.out_dilewati === 'number' ? row.out_dilewati : countBefore;
+
+      if (dibuat < 0) dibuat = 0;
+      if (dilewati < 0) dilewati = 0;
+
+      return { dibuat, dilewati };
     }
 
     // ---- Fallback mode demo (tanpa Supabase tetap jalan) ----
     let createdCount = 0;
+    let skippedCount = 0;
 
     const periodeStr = periodeBulan.replace('-', ''); // 202610
     const jatuhTempo = `${periodeBulan}-10`; // Selalu tanggal 10 (BR-06)
+    const targetPeriodDate = `${periodeBulan}-01`;
 
-    for (const k of this.kontrak.filter(item => item.status === 'aktif')) {
+    const matchingContracts = this.kontrak.filter(item => {
+      if (item.status !== 'aktif') return false;
+      const start = item.tanggal_mulai;
+      const end = item.tanggal_selesai;
+      return (!start || start <= targetPeriodDate) && (!end || end >= targetPeriodDate);
+    });
+
+    for (const k of matchingContracts) {
       // BR-06: Satu kontrak hanya punya satu tagihan per periode
       const exists = this.tagihan.some(t => t.kontrak_id === k.id && t.periode.startsWith(periodeBulan));
       if (!exists) {
@@ -525,11 +540,13 @@ class DataStore {
 
         this.tagihan.push(newTagihan);
         createdCount++;
+      } else {
+        skippedCount++;
       }
     }
 
-    this.logAudit(actor, 'buat_massal:tagihan', 'tagihan', periodeBulan, null, { createdCount, periode: periodeBulan });
-    return { dibuat: createdCount, dilewati: 0 };
+    this.logAudit(actor, 'buat_massal:tagihan', 'tagihan', periodeBulan, null, { createdCount, skippedCount, periode: periodeBulan });
+    return { dibuat: createdCount, dilewati: skippedCount };
   }
 
   public async recordPayment(data: {

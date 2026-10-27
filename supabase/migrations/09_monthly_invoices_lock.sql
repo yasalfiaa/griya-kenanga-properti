@@ -85,11 +85,16 @@ BEGIN
         out_dibuat := COALESCE(out_dibuat, 0) + 1;
     END LOOP;
 
-    IF COALESCE(out_dibuat, 0) > 0 THEN
+    out_dibuat := COALESCE(out_dibuat, 0);
+    out_dilewati := COALESCE(out_dilewati, 0);
+
+    IF out_dibuat > 0 THEN
         INSERT INTO public.audit_log (pelaku_id, peran, aksi, tabel, data_id, sesudah)
         VALUES (auth.uid(), v_role, 'buat:tagihan', 'tagihan', TO_CHAR(p_periode, 'YYYY-MM'),
-                jsonb_build_object('dibuat', out_dibuat, 'lewati', COALESCE(out_dilewati, 0)));
+                jsonb_build_object('dibuat', out_dibuat, 'lewati', out_dilewati));
     END IF;
+
+    RETURN NEXT;
 END;
 $$;
 

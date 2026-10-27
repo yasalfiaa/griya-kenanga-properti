@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { dataStore } from '../api/data-service';
 import { supabase } from '../api/supabase';
@@ -33,6 +33,34 @@ export const Invoices: React.FC = () => {
   const [invoices, setInvoices] = useState<Tagihan[]>(() => dataStore.getInvoices());
   const [selectedPeriod, setSelectedPeriod] = useState<string>('2026-10');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    dataStore.loadFromSupabase().then(() => {
+      if (isMounted) {
+        setInvoices(dataStore.getInvoices());
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Kumpulkan semua periode yang tersedia secara dinamis dari tagihan yang ada
+  const availablePeriods = useMemo(() => {
+    const periodSet = new Set<string>();
+    invoices.forEach(inv => {
+      if (inv.periode && inv.periode.length >= 7) {
+        periodSet.add(inv.periode.slice(0, 7));
+      }
+    });
+    // Pastikan periode bawaan demo tetap ada dalam daftar pilihan
+    ['2026-10', '2026-09', '2026-08'].forEach(p => periodSet.add(p));
+    if (selectedPeriod !== 'all') {
+      periodSet.add(selectedPeriod);
+    }
+    return Array.from(periodSet).sort((a, b) => b.localeCompare(a));
+  }, [invoices, selectedPeriod]);
 
   // Modal Catat Pembayaran (Pengelola)
   const [payingInvoice, setPayingInvoice] = useState<Tagihan | null>(null);
@@ -89,13 +117,16 @@ export const Invoices: React.FC = () => {
       setGenerateError(null);
       const result = await dataStore.generateMonthlyInvoices(generatePeriod, currentUser);
       setInvoices(dataStore.getInvoices());
+      setSelectedPeriod(generatePeriod);
       setMessage({
         type: 'success',
         text:
           result.dibuat > 0
             ? `Berhasil membuat ${result.dibuat} tagihan baru untuk periode ${generatePeriod}` +
               (result.dilewati > 0 ? ` (${result.dilewati} sudah ada, dilewati — tidak ada dobel).` : '.')
-            : `Semua kontrak aktif untuk periode ${generatePeriod} sudah memiliki tagihan (${result.dilewati} dilewati). Tidak ada tagihan ganda yang dibuat.`,
+            : result.dilewati > 0
+            ? `Semua kontrak aktif untuk periode ${generatePeriod} sudah memiliki tagihan (${result.dilewati} dilewati). Tidak ada tagihan ganda yang dibuat.`
+            : `Tidak ada kontrak aktif yang mencakup periode ${generatePeriod}. Tidak ada tagihan yang dibuat.`,
       });
       setShowGenerateModal(false);
       setGenerateError(null);
@@ -398,19 +429,28 @@ export const Invoices: React.FC = () => {
       )}
 
       {/* Filter Periode */}
-      <div className="flex items-center gap-2 bg-muted p-1.5 rounded-xl text-xs font-semibold w-fit">
+      <div className="flex flex-wrap items-center gap-2 bg-muted p-1.5 rounded-xl text-xs font-semibold w-fit max-w-full">
         <span className="text-muted-foreground px-2">Periode Tagihan:</span>
-        {['2026-10', '2026-09', '2026-08', 'all'].map((p) => (
+        {availablePeriods.map((p) => (
           <button
             key={p}
             onClick={() => setSelectedPeriod(p)}
-            className={`px-3 py-1.5 rounded-lg transition-all ${
+            className={`px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${
               selectedPeriod === p ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            {p === 'all' ? 'Semua Periode' : p}
+            {p}
           </button>
         ))}
+        <button
+          key="all"
+          onClick={() => setSelectedPeriod('all')}
+          className={`px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${
+            selectedPeriod === 'all' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Semua Periode
+        </button>
       </div>
 
       {/* Tabel Tagihan */}
