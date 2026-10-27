@@ -167,20 +167,16 @@ export const TenantIdentity: React.FC = () => {
 
       {/* Banner Status Verifikasi Identitas */}
       {identitas?.status_verifikasi === 'ditolak' && (
-        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 shadow-sm space-y-2.5">
-          <div className="flex items-center gap-2 font-bold text-sm text-rose-800">
-            <XCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />
-            <span>Verifikasi Identitas Ditolak oleh Pengelola</span>
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 shadow-sm flex items-start gap-3">
+          <XCircle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
+          <div className="text-xs space-y-1">
+            <h4 className="font-bold text-sm text-rose-900">Verifikasi Identitas Ditolak</h4>
+            <p className="text-rose-800 leading-relaxed">
+              {identitas.catatan_verifikasi
+                ? `Silakan periksa kembali data anda dengan ${identitas.catatan_verifikasi.replace(/\.$/, '')} dan ajukan verifikasi ulang.`
+                : 'Silakan periksa kembali data anda dan ajukan verifikasi ulang.'}
+            </p>
           </div>
-          {identitas.catatan_verifikasi && (
-            <div className="p-3 bg-white/90 rounded-xl border border-rose-200/80 text-xs">
-              <span className="font-semibold text-rose-800 block mb-0.5">Alasan / Catatan Pengelola:</span>
-              <p className="text-rose-700 italic font-medium">"{identitas.catatan_verifikasi}"</p>
-            </div>
-          )}
-          <p className="text-xs text-rose-700 leading-relaxed">
-            Pengelola meminta Anda melakukan verifikasi ulang. Silakan periksa kembali data Anda, unggah berkas foto KTP baru yang jelas dan sesuai permintaan Pengelola di atas, lalu klik <strong>Simpan & Ajukan Verifikasi Ulang</strong> di bawah.
-          </p>
         </div>
       )}
 
