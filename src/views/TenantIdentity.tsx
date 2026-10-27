@@ -13,7 +13,6 @@ import {
   CheckCircle2,
   AlertCircle,
   XCircle,
-  Clock,
   Image as ImageIcon,
   Loader2,
   FileText,
@@ -165,7 +164,7 @@ export const TenantIdentity: React.FC = () => {
         </p>
       </div>
 
-      {/* Banner Status Verifikasi Identitas */}
+      {/* Banner Kesalahan/Penolakan: Khusus Penyewa dengan Status Verifikasi Ditolak */}
       {identitas?.status_verifikasi === 'ditolak' && (
         <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 shadow-sm flex items-start gap-3">
           <XCircle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
@@ -175,30 +174,6 @@ export const TenantIdentity: React.FC = () => {
               {identitas.catatan_verifikasi
                 ? `Silakan periksa kembali data anda dengan ${identitas.catatan_verifikasi.replace(/\.$/, '')} dan ajukan verifikasi ulang.`
                 : 'Silakan periksa kembali data anda dan ajukan verifikasi ulang.'}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {identitas?.status_verifikasi === 'belum' && (
-        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 shadow-sm flex items-start gap-3">
-          <Clock className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-          <div className="text-xs space-y-1">
-            <h4 className="font-bold text-sm text-amber-900">Menunggu Verifikasi Pengelola</h4>
-            <p className="text-amber-800 leading-relaxed">
-              Data identitas dan foto KTP Anda telah tersimpan dan sedang dalam antrean pemeriksaan oleh Pengelola properti.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {identitas?.status_verifikasi === 'terverifikasi' && (
-        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 shadow-sm flex items-start gap-3">
-          <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
-          <div className="text-xs space-y-1">
-            <h4 className="font-bold text-sm text-emerald-900">Identitas Terverifikasi</h4>
-            <p className="text-emerald-800 leading-relaxed">
-              Identitas KTP Anda telah diverifikasi dan disetujui oleh Pengelola properti. Kontrak sewa kamar Anda siap diaktifkan.
             </p>
           </div>
         </div>
