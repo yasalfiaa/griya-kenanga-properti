@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { dataStore } from '../api/data-service';
+import { isSupabaseConfigured } from '../api/supabase';
 import { maskNIK } from '../utils/business-rules';
 import { getSignedImageUrl, STORAGE_BUCKETS, isHttpUrl } from '../api/storage';
 import { ModalErrorAlert } from '../components/ModalErrorAlert';
@@ -42,7 +43,12 @@ export const Tenants: React.FC = () => {
 
   useEffect(() => {
     setTenants(dataStore.getTenants());
-  }, []);
+    if (isSupabaseConfigured) {
+      dataStore.loadFromSupabase().then(() => {
+        setTenants(dataStore.getTenants());
+      });
+    }
+  }, [currentUser]);
 
   const sortedTenants = [...tenants].sort((a, b) =>
     a.profile.nama_lengkap.localeCompare(b.profile.nama_lengkap, 'id', { sensitivity: 'base' })

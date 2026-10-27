@@ -69,7 +69,29 @@ class DataStore {
       if (p.data && p.data.length > 0) this.pembayaran = p.data as Pembayaran[];
       if (lk.data && lk.data.length > 0) this.kerusakan = lk.data as LaporanKerusakan[];
       if (prof.data && prof.data.length > 0) this.profiles = prof.data as Profile[];
-      if (id.data && id.data.length > 0) this.identitas = id.data as IdentitasPenyewa[];
+
+      // Identitas penyewa: jika id.data kosong (misal login sebagai Pemilik sesuai BR-10),
+      // ambil dari view identitas_penyewa_pemilik agar data Pemilik selalu sinkron dengan Pengelola
+      let identitasData = (id.data && id.data.length > 0) ? (id.data as IdentitasPenyewa[]) : null;
+      if (!identitasData || identitasData.length === 0) {
+        const { data: idPemilik } = await supabase.from('identitas_penyewa_pemilik').select('*');
+        if (idPemilik && idPemilik.length > 0) {
+          identitasData = idPemilik.map((row: any) => ({
+            penyewa_id: row.penyewa_id,
+            nik: row.nik_masked || row.nik,
+            alamat_asal: row.alamat_asal,
+            kontak_darurat_nama: row.kontak_darurat_nama,
+            kontak_darurat_hp: row.kontak_darurat_hp,
+            status_verifikasi: row.status_verifikasi,
+            diverifikasi_oleh: row.diverifikasi_oleh,
+            diverifikasi_pada: row.diverifikasi_pada,
+            catatan_verifikasi: row.catatan_verifikasi,
+            foto_ktp_path: row.foto_ktp_path || null,
+          })) as IdentitasPenyewa[];
+        }
+      }
+      if (identitasData && identitasData.length > 0) this.identitas = identitasData;
+
       if (al.data && al.data.length > 0) this.auditLogs = al.data as AuditLog[];
       this.isLoadedFromSupabase = true;
       console.log('✅ Berhasil menyinkronkan data langsung dari Supabase!');
