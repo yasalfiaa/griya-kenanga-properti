@@ -58,10 +58,17 @@ export const Reports: React.FC = () => {
     );
   }
 
-  // Filter tagihan berdasarkan bulan (atau semua bulan jika 'all')
-  const filteredInvoices = invoices.filter(i =>
-    selectedMonth === 'all' ? true : i.periode.startsWith(selectedMonth)
-  );
+  // Arus kas terdata di sistem mulai bulan Agustus 2026 sesuai data acuan contoh (Agustus, September, Oktober)
+  const systemInvoices = useMemo(() => {
+    return invoices.filter(i => (i.periode || '').slice(0, 7) >= '2026-08');
+  }, [invoices]);
+
+  // Filter tagihan berdasarkan bulan (atau seluruh periode aktif mulai Agustus 2026 jika 'all')
+  const filteredInvoices = useMemo(() => {
+    return systemInvoices.filter(i =>
+      selectedMonth === 'all' ? true : i.periode.startsWith(selectedMonth)
+    );
+  }, [systemInvoices, selectedMonth]);
 
   const validInvoices = filteredInvoices.filter(i => i.status !== 'dibatalkan');
   const totalDitagihkan = validInvoices.reduce((acc, curr) => acc + curr.nominal_sewa + curr.denda, 0);
@@ -123,16 +130,18 @@ export const Reports: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // Kumpulkan seluruh periode yang ada secara dinamis untuk grafik batang perbandingan bulanan
+  // Kumpulkan seluruh periode aktif secara dinamis untuk perbandingan bulanan (mulai Agustus 2026)
   const availableChartMonths = useMemo(() => {
     const monthSet = new Set<string>();
     invoices.forEach(i => {
-      if (i.periode && i.periode.length >= 7) {
-        monthSet.add(i.periode.slice(0, 7));
+      const p = i.periode ? i.periode.slice(0, 7) : '';
+      if (p >= '2026-08') {
+        monthSet.add(p);
       }
     });
+    // Pastikan periode acuan data contoh (Agustus, September, Oktober 2026) selalu ada
     ['2026-08', '2026-09', '2026-10'].forEach(m => monthSet.add(m));
-    if (selectedMonth !== 'all') {
+    if (selectedMonth !== 'all' && selectedMonth >= '2026-08') {
       monthSet.add(selectedMonth);
     }
     return Array.from(monthSet).sort((a, b) => a.localeCompare(b));
@@ -142,16 +151,22 @@ export const Reports: React.FC = () => {
     const mInvoices = invoices.filter(i => i.periode.startsWith(m) && i.status !== 'dibatalkan');
     const tagih = mInvoices.reduce((acc, curr) => acc + curr.nominal_sewa + curr.denda, 0);
     const terima = mInvoices.reduce((acc, curr) => acc + curr.terbayar, 0);
+    const tunggakan = Math.max(0, tagih - terima);
     const [year, month] = m.split('-');
     const d = new Date(Number(year), Number(month) - 1, 1);
     const label = !isNaN(d.getTime())
+      ? d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
+      : m;
+    const shortLabel = !isNaN(d.getTime())
       ? d.toLocaleDateString('id-ID', { month: 'short' }) + ' ' + year.slice(2)
       : m;
     return {
       month: m,
       label,
+      shortLabel,
       tagih,
       terima,
+      tunggakan,
     };
   });
 
@@ -187,6 +202,7 @@ export const Reports: React.FC = () => {
             <Calendar className="w-4 h-4 text-muted-foreground flex-shrink-0" />
             <input
               type="month"
+              min="2026-08"
               value={selectedMonth === 'all' ? '' : selectedMonth}
               onChange={(e) => {
                 if (e.target.value) {
@@ -216,7 +232,7 @@ export const Reports: React.FC = () => {
           <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Ditagihkan</span>
           <div className="text-2xl font-extrabold text-foreground">{formatRupiah(totalDitagihkan)}</div>
           <p className="text-xs text-muted-foreground">
-            {selectedMonth === 'all' ? 'Seluruh periode tercatat' : `Periode ${selectedMonth}`}
+            {selectedMonth === 'all' ? 'Seluruh periode aktif (mulai Ags 2026)' : `Periode ${selectedMonth}`}
           </p>
         </div>
 
@@ -239,18 +255,21 @@ export const Reports: React.FC = () => {
         </div>
       </div>
 
-      {/* Visualisasi Grafik Batang Berkelompok (Recharts): Ditagihkan vs Diterima Bulanan */}
-      <div className="bg-white rounded-xl p-6 border shadow-sm space-y-4">
-        <h3 className="font-bold text-foreground text-sm flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-primary" /> Perbandingan Ditagihkan vs Diterima Per Bulan
-        </h3>
+      {/* Visualisasi Grafik Batang Berkelompok & Tabel Perbandingan Bulanan */}
+      <div className="bg-card rounded-2xl border border-border p-6 shadow-sm space-y-5">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+          <h3 className="font-bold text-foreground text-sm flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-primary" /> Perbandingan Ditagihkan vs Diterima Per Bulan
+          </h3>
+          <span className="text-xs text-muted-foreground">Arus kas tercatat mulai Agustus 2026</span>
+        </div>
 
         <div className="h-72 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={monthlySummary} barGap={6} margin={{ top: 8, right: 16, left: 4, bottom: 4 }}>
               <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis
-                dataKey="label"
+                dataKey="shortLabel"
                 tickLine={false}
                 axisLine={false}
                 tick={{ fontSize: 12, fill: '#64748b', fontWeight: 600 }}
@@ -265,6 +284,7 @@ export const Reports: React.FC = () => {
               <Tooltip
                 cursor={{ fill: 'rgba(148, 163, 184, 0.1)' }}
                 formatter={(value) => formatRupiah(Number(value))}
+                labelFormatter={(_, payload) => payload?.[0]?.payload?.label || ''}
                 contentStyle={{
                   borderRadius: '12px',
                   border: '1px solid #e2e8f0',
@@ -282,6 +302,47 @@ export const Reports: React.FC = () => {
               <Bar dataKey="terima" name="Diterima" fill="var(--primary)" radius={[6, 6, 0, 0]} maxBarSize={40} />
             </BarChart>
           </ResponsiveContainer>
+        </div>
+
+        {/* Tabel Perbandingan Arus Kas Bulanan */}
+        <div className="overflow-x-auto rounded-xl border border-border mt-4">
+          <table className="w-full text-left text-xs text-muted-foreground">
+            <thead className="bg-muted/50 border-b border-border font-semibold text-muted-foreground uppercase tracking-wider">
+              <tr>
+                <th className="py-2.5 px-4">Periode</th>
+                <th className="py-2.5 px-4 text-right">Ditagihkan</th>
+                <th className="py-2.5 px-4 text-right">Diterima (Kas Masuk)</th>
+                <th className="py-2.5 px-4 text-right">Tunggakan</th>
+                <th className="py-2.5 px-4 text-right">Rasio Koleksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {monthlySummary.map((m) => {
+                const ratio = m.tagih > 0 ? ((m.terima / m.tagih) * 100).toFixed(1) : '0';
+                return (
+                  <tr key={m.month} className="hover:bg-muted/40 transition-colors">
+                    <td className="py-2.5 px-4 font-semibold text-foreground">{m.label}</td>
+                    <td className="py-2.5 px-4 text-right font-medium text-foreground">{formatRupiah(m.tagih)}</td>
+                    <td className="py-2.5 px-4 text-right font-semibold text-primary">{formatRupiah(m.terima)}</td>
+                    <td className="py-2.5 px-4 text-right font-bold text-rose-600">{formatRupiah(m.tunggakan)}</td>
+                    <td className="py-2.5 px-4 text-right">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                          Number(ratio) >= 80
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : Number(ratio) >= 50
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-rose-100 text-rose-800'
+                        }`}
+                      >
+                        {ratio}%
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
 
