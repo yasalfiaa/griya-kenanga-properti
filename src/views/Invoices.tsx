@@ -46,7 +46,7 @@ export const Invoices: React.FC = () => {
     };
   }, []);
 
-  // Kumpulkan semua periode yang tersedia secara dinamis dari tagihan yang ada
+  // Kumpulkan semua periode yang tersedia, perketat badge tagihan hanya 3 bulan terakhir sejak halaman diperbarui
   const availablePeriods = useMemo(() => {
     const periodSet = new Set<string>();
     invoices.forEach(inv => {
@@ -54,13 +54,13 @@ export const Invoices: React.FC = () => {
         periodSet.add(inv.periode.slice(0, 7));
       }
     });
-    // Pastikan periode bawaan demo tetap ada dalam daftar pilihan
+    // Pastikan periode acuan demo tetap ada dalam daftar perhitungan
     ['2026-10', '2026-09', '2026-08'].forEach(p => periodSet.add(p));
-    if (selectedPeriod !== 'all') {
-      periodSet.add(selectedPeriod);
-    }
-    return Array.from(periodSet).sort((a, b) => b.localeCompare(a));
-  }, [invoices, selectedPeriod]);
+
+    // Urutkan secara menurun (terbaru ke terlama) dan batasi hanya 3 bulan terakhir
+    const sorted = Array.from(periodSet).sort((a, b) => b.localeCompare(a));
+    return sorted.slice(0, 3);
+  }, [invoices]);
 
   // Modal Catat Pembayaran (Pengelola)
   const [payingInvoice, setPayingInvoice] = useState<Tagihan | null>(null);
@@ -116,17 +116,23 @@ export const Invoices: React.FC = () => {
       setIsGenerating(true);
       setGenerateError(null);
       const result = await dataStore.generateMonthlyInvoices(generatePeriod, currentUser);
+
+      // Kembalikan komponen keterangan error ketika tagihan pada periode tertentu sudah dibuat
+      if (result.dibuat === 0) {
+        if (result.dilewati > 0) {
+          throw new Error('Tagihan untuk periode ini sudah pernah dibuat. Tidak ada tagihan baru yang ditambahkan.');
+        } else {
+          throw new Error(`Tidak ada kontrak aktif yang mencakup periode ${generatePeriod}. Tidak ada tagihan yang dibuat.`);
+        }
+      }
+
       setInvoices(dataStore.getInvoices());
       setSelectedPeriod(generatePeriod);
       setMessage({
         type: 'success',
         text:
-          result.dibuat > 0
-            ? `Berhasil membuat ${result.dibuat} tagihan baru untuk periode ${generatePeriod}` +
-              (result.dilewati > 0 ? ` (${result.dilewati} sudah ada, dilewati — tidak ada dobel).` : '.')
-            : result.dilewati > 0
-            ? `Semua kontrak aktif untuk periode ${generatePeriod} sudah memiliki tagihan (${result.dilewati} dilewati). Tidak ada tagihan ganda yang dibuat.`
-            : `Tidak ada kontrak aktif yang mencakup periode ${generatePeriod}. Tidak ada tagihan yang dibuat.`,
+          `Berhasil membuat ${result.dibuat} tagihan baru untuk periode ${generatePeriod}` +
+          (result.dilewati > 0 ? ` (${result.dilewati} sudah ada, dilewati — tidak ada dobel).` : '.'),
       });
       setShowGenerateModal(false);
       setGenerateError(null);
@@ -820,7 +826,10 @@ export const Invoices: React.FC = () => {
               <input
                 type="month"
                 value={generatePeriod}
-                onChange={(e) => setGeneratePeriod(e.target.value)}
+                onChange={(e) => {
+                  setGeneratePeriod(e.target.value);
+                  if (generateError) setGenerateError(null);
+                }}
                 className="w-full text-sm border border-border rounded-xl px-3 py-2 focus:ring-2 focus:ring-ring focus:outline-none"
               />
             </div>
