@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { dataStore } from '../api/data-service';
 import { formatRupiah } from '../utils/business-rules';
+import { Unit, Kontrak, Tagihan } from '../types/database';
 import {
   ResponsiveContainer,
   BarChart,
@@ -26,9 +27,24 @@ export const Reports: React.FC = () => {
   const { role } = useAuth();
   const [selectedMonth, setSelectedMonth] = useState('all');
 
-  const units = dataStore.getUnits();
-  const contracts = dataStore.getContracts();
-  const invoices = dataStore.getInvoices();
+  const [units, setUnits] = useState<Unit[]>(() => dataStore.getUnits());
+  const [contracts, setContracts] = useState<Kontrak[]>(() => dataStore.getContracts());
+  const [invoices, setInvoices] = useState<Tagihan[]>(() => dataStore.getInvoices());
+
+  // Sinkronisasi data real-time dengan Supabase saat halaman laporan dimuat
+  useEffect(() => {
+    let isMounted = true;
+    dataStore.loadFromSupabase().then(() => {
+      if (isMounted) {
+        setUnits(dataStore.getUnits());
+        setContracts(dataStore.getContracts());
+        setInvoices(dataStore.getInvoices());
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   if (role !== 'pemilik') {
     return (
@@ -42,23 +58,31 @@ export const Reports: React.FC = () => {
     );
   }
 
-  // Filter tagihan
+  // Filter tagihan berdasarkan bulan (atau semua bulan jika 'all')
   const filteredInvoices = invoices.filter(i =>
     selectedMonth === 'all' ? true : i.periode.startsWith(selectedMonth)
   );
 
-  const totalDitagihkan = filteredInvoices.reduce((acc, curr) => acc + curr.nominal_sewa + curr.denda, 0);
+  const validInvoices = filteredInvoices.filter(i => i.status !== 'dibatalkan');
+  const totalDitagihkan = validInvoices.reduce((acc, curr) => acc + curr.nominal_sewa + curr.denda, 0);
   const totalDiterima = filteredInvoices.reduce((acc, curr) => acc + curr.terbayar, 0);
   const totalTunggakan = Math.max(0, totalDitagihkan - totalDiterima);
 
   // Hunian per bulan (Unit terisi / unit tidak nonaktif)
   const unitAktif = units.filter(u => u.status !== 'nonaktif').length;
-  const unitTerisi = contracts.filter(k => k.status === 'aktif').length;
-  const occupancyRate = ((unitTerisi / unitAktif) * 100).toFixed(1);
+  const unitTerisi = contracts.filter(k => {
+    if (k.status !== 'aktif') return false;
+    if (selectedMonth === 'all') return true;
+    const targetDate = `${selectedMonth}-01`;
+    const start = k.tanggal_mulai;
+    const end = k.tanggal_selesai;
+    return (!start || start <= targetDate) && (!end || end >= targetDate);
+  }).length;
+  const occupancyRate = unitAktif > 0 ? ((unitTerisi / unitAktif) * 100).toFixed(1) : '0';
 
   // Data pendapatan per unit (untuk tabel dan CSV export)
   const unitRevenueData = units.map(u => {
-    const unitInvoices = filteredInvoices.filter(i => i.kontrak?.unit_id === u.id);
+    const unitInvoices = validInvoices.filter(i => i.kontrak?.unit_id === u.id);
     const ditagihkan = unitInvoices.reduce((acc, curr) => acc + curr.nominal_sewa + curr.denda, 0);
     const diterima = unitInvoices.reduce((acc, curr) => acc + curr.terbayar, 0);
     const tunggakan = Math.max(0, ditagihkan - diterima);
@@ -99,14 +123,33 @@ export const Reports: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // Ringkasan per bulan untuk grafik batang (Agustus, September, Oktober 2026)
-  const monthlySummary = ['2026-08', '2026-09', '2026-10'].map(m => {
-    const mInvoices = invoices.filter(i => i.periode.startsWith(m));
+  // Kumpulkan seluruh periode yang ada secara dinamis untuk grafik batang perbandingan bulanan
+  const availableChartMonths = useMemo(() => {
+    const monthSet = new Set<string>();
+    invoices.forEach(i => {
+      if (i.periode && i.periode.length >= 7) {
+        monthSet.add(i.periode.slice(0, 7));
+      }
+    });
+    ['2026-08', '2026-09', '2026-10'].forEach(m => monthSet.add(m));
+    if (selectedMonth !== 'all') {
+      monthSet.add(selectedMonth);
+    }
+    return Array.from(monthSet).sort((a, b) => a.localeCompare(b));
+  }, [invoices, selectedMonth]);
+
+  const monthlySummary = availableChartMonths.map(m => {
+    const mInvoices = invoices.filter(i => i.periode.startsWith(m) && i.status !== 'dibatalkan');
     const tagih = mInvoices.reduce((acc, curr) => acc + curr.nominal_sewa + curr.denda, 0);
     const terima = mInvoices.reduce((acc, curr) => acc + curr.terbayar, 0);
+    const [year, month] = m.split('-');
+    const d = new Date(Number(year), Number(month) - 1, 1);
+    const label = !isNaN(d.getTime())
+      ? d.toLocaleDateString('id-ID', { month: 'short' }) + ' ' + year.slice(2)
+      : m;
     return {
       month: m,
-      label: m === '2026-08' ? 'Agustus' : m === '2026-09' ? 'September' : 'Oktober',
+      label,
       tagih,
       terima,
     };
@@ -125,18 +168,37 @@ export const Reports: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Filter Bulan */}
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="text-xs font-semibold bg-card border border-border rounded-xl px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-purple-500"
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          {/* Tombol Semua Bulan di sebelah kiri komponen date picker */}
+          <button
+            type="button"
+            onClick={() => setSelectedMonth('all')}
+            className={`px-3.5 py-2 text-xs font-semibold rounded-xl border border-primary transition-all whitespace-nowrap shadow-sm ${
+              selectedMonth === 'all'
+                ? 'bg-primary text-white'
+                : 'bg-card text-primary hover:bg-primary/10'
+            }`}
           >
-            <option value="all">Semua Bulan (Agus - Okt 2026)</option>
-            <option value="2026-10">Oktober 2026</option>
-            <option value="2026-09">September 2026</option>
-            <option value="2026-08">Agustus 2026</option>
-          </select>
+            Semua Bulan
+          </button>
+
+          {/* Date Picker dengan filter month */}
+          <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-primary focus-within:border-primary shadow-sm">
+            <Calendar className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            <input
+              type="month"
+              value={selectedMonth === 'all' ? '' : selectedMonth}
+              onChange={(e) => {
+                if (e.target.value) {
+                  setSelectedMonth(e.target.value);
+                } else {
+                  setSelectedMonth('all');
+                }
+              }}
+              className="text-xs font-semibold bg-transparent border-0 text-foreground focus:outline-none cursor-pointer"
+              aria-label="Pilih Bulan Laporan"
+            />
+          </div>
 
           {/* Unduh CSV Button */}
           <button
@@ -153,7 +215,9 @@ export const Reports: React.FC = () => {
         <div className="bg-card rounded-2xl border border-border p-5 shadow-sm space-y-1">
           <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Ditagihkan</span>
           <div className="text-2xl font-extrabold text-foreground">{formatRupiah(totalDitagihkan)}</div>
-          <p className="text-xs text-muted-foreground">Termasuk denda berjalan</p>
+          <p className="text-xs text-muted-foreground">
+            {selectedMonth === 'all' ? 'Seluruh periode tercatat' : `Periode ${selectedMonth}`}
+          </p>
         </div>
 
         <div className="bg-card rounded-2xl border border-border p-5 shadow-sm space-y-1">
