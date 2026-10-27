@@ -46,8 +46,7 @@ export const Invoices: React.FC = () => {
     };
   }, []);
 
-  // Kumpulkan semua periode yang tersedia, pertahankan tampilan 3 bulan terakhir
-  // namun sertakan periode yang sedang dipilih agar data yang diminta di 'buat tagihan' dapat langsung tampil
+  // Kumpulkan semua periode yang tersedia, pertahankan filter 3 bulan terbaru dengan menggeser periode paling awal
   const availablePeriods = useMemo(() => {
     const periodSet = new Set<string>();
     invoices.forEach(inv => {
@@ -58,20 +57,17 @@ export const Invoices: React.FC = () => {
     // Pastikan periode acuan demo tetap ada dalam daftar perhitungan
     ['2026-10', '2026-09', '2026-08'].forEach(p => periodSet.add(p));
 
-    // Urutkan secara menurun (terbaru ke terlama)
+    // Urutkan secara menurun (terbaru ke terlama) dan batasi tepat 3 bulan terakhir (menggeser bulan paling awal dibuat)
     const sorted = Array.from(periodSet).sort((a, b) => b.localeCompare(a));
+    return sorted.slice(0, 3);
+  }, [invoices]);
 
-    let list = sorted.slice(0, 3);
-    // Jika selectedPeriod spesifik (bukan 'all') dan berada di luar top 3,
-    // sesuaikan jendela 3 bulan agar memuat selectedPeriod yang dipilih
-    if (selectedPeriod !== 'all' && !list.includes(selectedPeriod)) {
-      const combined = Array.from(new Set([selectedPeriod, ...sorted])).sort((a, b) => b.localeCompare(a));
-      const idx = combined.indexOf(selectedPeriod);
-      const start = Math.max(0, Math.min(idx, combined.length - 3));
-      list = combined.slice(start, start + 3);
+  // Sinkronkan selectedPeriod ke periode terbaru jika periode yang dipilih di luar daftar 3 bulan terbaru (dan bukan 'all')
+  useEffect(() => {
+    if (availablePeriods.length > 0 && selectedPeriod !== 'all' && !availablePeriods.includes(selectedPeriod)) {
+      setSelectedPeriod(availablePeriods[0]);
     }
-    return list;
-  }, [invoices, selectedPeriod]);
+  }, [availablePeriods, selectedPeriod]);
 
   // Modal Catat Pembayaran (Pengelola)
   const [payingInvoice, setPayingInvoice] = useState<Tagihan | null>(null);
@@ -127,16 +123,15 @@ export const Invoices: React.FC = () => {
       setIsGenerating(true);
       setGenerateError(null);
 
-      // Keterangan error hanya berlaku jika periode tagihan yang dipilih sudah tampil di halaman
-      if (availablePeriods.includes(generatePeriod)) {
-        throw new Error('Tagihan untuk periode ini sudah pernah dibuat. Periode ini sudah tampil pada halaman.');
-      }
-
       const result = await dataStore.generateMonthlyInvoices(generatePeriod, currentUser);
 
-      // Jika tidak ada kontrak aktif sama sekali untuk periode ini
-      if (result.dibuat === 0 && result.dilewati === 0) {
-        throw new Error(`Tidak ada kontrak aktif yang mencakup periode ${generatePeriod}. Tidak ada tagihan yang dibuat.`);
+      // Jika tagihan untuk periode ini sudah pernah dibuat sebelumnya
+      if (result.dibuat === 0) {
+        if (result.dilewati > 0) {
+          throw new Error(`Tagihan untuk periode ${generatePeriod} sudah pernah dibuat. Tidak ada tagihan baru yang ditambahkan.`);
+        } else {
+          throw new Error(`Tidak ada kontrak aktif yang mencakup periode ${generatePeriod}. Tidak ada tagihan yang dibuat.`);
+        }
       }
 
       setInvoices(dataStore.getInvoices());
@@ -144,10 +139,8 @@ export const Invoices: React.FC = () => {
       setMessage({
         type: 'success',
         text:
-          result.dibuat > 0
-            ? `Berhasil membuat ${result.dibuat} tagihan baru untuk periode ${generatePeriod}` +
-              (result.dilewati > 0 ? ` (${result.dilewati} sudah ada, dilewati — tidak ada dobel).` : '.')
-            : `Data tagihan untuk periode ${generatePeriod} berhasil diperbarui dan ditampilkan di halaman.`,
+          `Berhasil membuat dan menerbitkan ${result.dibuat} tagihan baru untuk penyewa aktif pada periode ${generatePeriod}` +
+          (result.dilewati > 0 ? ` (${result.dilewati} tagihan sudah ada sebelumnya).` : '.'),
       });
       setShowGenerateModal(false);
       setGenerateError(null);
@@ -825,7 +818,7 @@ export const Invoices: React.FC = () => {
               <PlusCircle className="w-5 h-5 text-primary" /> Buat Tagihan Bulanan
             </h3>
             <p className="text-xs text-muted-foreground">
-              Pilih periode yang ingin anda buat.
+              Pilih periode yang ingin Anda buat. Tagihan akan otomatis diterbitkan ke masing-masing penyewa dengan kontrak aktif.
             </p>
 
             {/* Error Alert Standar Modal: kegagalan tidak di-swallow */}
