@@ -46,7 +46,8 @@ export const Invoices: React.FC = () => {
     };
   }, []);
 
-  // Kumpulkan semua periode yang tersedia, perketat badge tagihan hanya 3 bulan terakhir sejak halaman diperbarui
+  // Kumpulkan semua periode yang tersedia, pertahankan tampilan 3 bulan terakhir
+  // namun sertakan periode yang sedang dipilih agar data yang diminta di 'buat tagihan' dapat langsung tampil
   const availablePeriods = useMemo(() => {
     const periodSet = new Set<string>();
     invoices.forEach(inv => {
@@ -57,10 +58,20 @@ export const Invoices: React.FC = () => {
     // Pastikan periode acuan demo tetap ada dalam daftar perhitungan
     ['2026-10', '2026-09', '2026-08'].forEach(p => periodSet.add(p));
 
-    // Urutkan secara menurun (terbaru ke terlama) dan batasi hanya 3 bulan terakhir
+    // Urutkan secara menurun (terbaru ke terlama)
     const sorted = Array.from(periodSet).sort((a, b) => b.localeCompare(a));
-    return sorted.slice(0, 3);
-  }, [invoices]);
+
+    let list = sorted.slice(0, 3);
+    // Jika selectedPeriod spesifik (bukan 'all') dan berada di luar top 3,
+    // sesuaikan jendela 3 bulan agar memuat selectedPeriod yang dipilih
+    if (selectedPeriod !== 'all' && !list.includes(selectedPeriod)) {
+      const combined = Array.from(new Set([selectedPeriod, ...sorted])).sort((a, b) => b.localeCompare(a));
+      const idx = combined.indexOf(selectedPeriod);
+      const start = Math.max(0, Math.min(idx, combined.length - 3));
+      list = combined.slice(start, start + 3);
+    }
+    return list;
+  }, [invoices, selectedPeriod]);
 
   // Modal Catat Pembayaran (Pengelola)
   const [payingInvoice, setPayingInvoice] = useState<Tagihan | null>(null);
@@ -115,15 +126,17 @@ export const Invoices: React.FC = () => {
     try {
       setIsGenerating(true);
       setGenerateError(null);
+
+      // Keterangan error hanya berlaku jika periode tagihan yang dipilih sudah tampil di halaman
+      if (availablePeriods.includes(generatePeriod)) {
+        throw new Error('Tagihan untuk periode ini sudah pernah dibuat. Periode ini sudah tampil pada halaman.');
+      }
+
       const result = await dataStore.generateMonthlyInvoices(generatePeriod, currentUser);
 
-      // Kembalikan komponen keterangan error ketika tagihan pada periode tertentu sudah dibuat
-      if (result.dibuat === 0) {
-        if (result.dilewati > 0) {
-          throw new Error('Tagihan untuk periode ini sudah pernah dibuat. Tidak ada tagihan baru yang ditambahkan.');
-        } else {
-          throw new Error(`Tidak ada kontrak aktif yang mencakup periode ${generatePeriod}. Tidak ada tagihan yang dibuat.`);
-        }
+      // Jika tidak ada kontrak aktif sama sekali untuk periode ini
+      if (result.dibuat === 0 && result.dilewati === 0) {
+        throw new Error(`Tidak ada kontrak aktif yang mencakup periode ${generatePeriod}. Tidak ada tagihan yang dibuat.`);
       }
 
       setInvoices(dataStore.getInvoices());
@@ -131,8 +144,10 @@ export const Invoices: React.FC = () => {
       setMessage({
         type: 'success',
         text:
-          `Berhasil membuat ${result.dibuat} tagihan baru untuk periode ${generatePeriod}` +
-          (result.dilewati > 0 ? ` (${result.dilewati} sudah ada, dilewati — tidak ada dobel).` : '.'),
+          result.dibuat > 0
+            ? `Berhasil membuat ${result.dibuat} tagihan baru untuk periode ${generatePeriod}` +
+              (result.dilewati > 0 ? ` (${result.dilewati} sudah ada, dilewati — tidak ada dobel).` : '.')
+            : `Data tagihan untuk periode ${generatePeriod} berhasil diperbarui dan ditampilkan di halaman.`,
       });
       setShowGenerateModal(false);
       setGenerateError(null);
